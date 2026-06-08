@@ -1,0 +1,208 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import BandCard from '../../components/BandCard.astro';
+import { siteConfig } from '../../lib/config';
+import { getBands, getBand, getRelatedBands } from '../../lib/api';
+
+// Generate static paths for all bands in the region at build time
+export async function getStaticPaths() {
+  const allBands = [];
+  let page = 1;
+  let hasMore = true;
+
+  // Paginate through all bands
+  while (hasMore) {
+    const result = await getBands({
+      region: (await import('../../lib/config')).siteConfig.regionId,
+      page,
+      page_size: 100,
+    });
+    allBands.push(...result.items);
+    hasMore = page < result.num_pages;
+    page++;
+  }
+
+  return allBands.map((band) => ({
+    params: { slug: band.slug },
+  }));
+}
+
+const { slug } = Astro.params;
+const [band, relatedBands] = await Promise.all([
+  getBand(slug!),
+  getRelatedBands(slug!),
+]);
+
+const priceDisplay =
+  band.price_low && band.price_high
+    ? `EUR ${band.price_low.toLocaleString()} - ${band.price_high.toLocaleString()}`
+    : band.price_low
+      ? `From EUR ${band.price_low.toLocaleString()}`
+      : null;
+
+// Schema.org MusicGroup
+const schemaOrg = {
+  '@context': 'https://schema.org',
+  '@type': 'MusicGroup',
+  name: band.name,
+  description: band.kicker || band.description?.substring(0, 200),
+  image: band.profile_image,
+  url: `https://${siteConfig.domain}/bands/${band.slug}/`,
+  ...(band.average_rating && {
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: band.average_rating,
+      reviewCount: band.review_count,
+      bestRating: 5,
+    },
+  }),
+};
+---
+
+<BaseLayout
+  title={`${band.name} - Wedding Band in Italy`}
+  description={band.kicker || `Book ${band.name} for your Italian wedding. ${band.review_count} reviews.`}
+>
+  <script type="application/ld+json" set:html={JSON.stringify(schemaOrg)} />
+
+  <article class="max-w-5xl mx-auto px-4 py-10">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="font-heading text-3xl md:text-4xl font-bold">{band.name}</h1>
+      {band.kicker && <p class="text-lg text-gray-600 mt-2">{band.kicker}</p>}
+      <div class="flex flex-wrap items-center gap-4 mt-4">
+        {priceDisplay && (
+          <span class="text-lg font-semibold text-primary">{priceDisplay}</span>
+        )}
+        {band.average_rating && (
+          <div class="flex items-center gap-1">
+            <span class="text-accent font-semibold">{band.average_rating.toFixed(1)}</span>
+            <svg class="w-5 h-5 text-accent" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+            <span class="text-gray-500">({band.review_count} reviews)</span>
+          </div>
+        )}
+        {band.location_name && (
+          <span class="text-gray-500">{band.location_name}</span>
+        )}
+      </div>
+    </div>
+
+    <!-- Profile image -->
+    {band.profile_image && (
+      <div class="rounded-xl overflow-hidden mb-8">
+        <img
+          src={band.profile_image}
+          alt={band.name}
+          class="w-full max-h-96 object-cover"
+        />
+      </div>
+    )}
+
+    <!-- Photo gallery -->
+    {band.photos && band.photos.length > 0 && (
+      <section class="mb-10">
+        <h2 class="font-heading text-2xl font-bold mb-4">Photos</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {band.photos.map((photo) => (
+            <div class="aspect-[4/3] rounded-lg overflow-hidden">
+              <img
+                src={photo.thumbnail_url || photo.url}
+                alt={photo.caption || band.name}
+                class="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                loading="lazy"
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- Description / Profile -->
+    {band.profile_markdown && (
+      <section class="mb-10 prose prose-lg max-w-none">
+        <h2 class="font-heading text-2xl font-bold mb-4">About {band.name}</h2>
+        <Fragment set:html={band.profile_markdown} />
+      </section>
+    )}
+
+    <!-- Videos -->
+    {band.videos && band.videos.length > 0 && (
+      <section class="mb-10">
+        <h2 class="font-heading text-2xl font-bold mb-4">Videos</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {band.videos.slice(0, 4).map((video) => (
+            <div class="aspect-video rounded-lg overflow-hidden bg-gray-100">
+              <iframe
+                src={video.url}
+                title={video.title || band.name}
+                class="w-full h-full"
+                loading="lazy"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- Reviews -->
+    {band.reviews && band.reviews.length > 0 && (
+      <section class="mb-10">
+        <h2 class="font-heading text-2xl font-bold mb-4">
+          Reviews ({band.review_count})
+        </h2>
+        <div class="space-y-4">
+          {band.reviews.slice(0, 10).map((review) => (
+            <div class="bg-gray-50 rounded-lg p-5">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold">{review.author_name}</span>
+                <div class="flex items-center gap-1">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <svg
+                      class={`w-4 h-4 ${i < review.rating ? 'text-accent' : 'text-gray-300'}`}
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+              </div>
+              <p class="text-gray-700">{review.text}</p>
+              <p class="text-sm text-gray-400 mt-2">{review.event_type} - {review.date}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- CTA -->
+    <div class="bg-primary rounded-xl p-8 text-white text-center">
+      <h2 class="font-heading text-2xl font-bold mb-3">
+        Interested in booking {band.name}?
+      </h2>
+      <p class="opacity-90 mb-6">Send an enquiry and we'll get back to you within 24 hours.</p>
+      <a
+        href={`/enquire/${band.slug}/`}
+        class="bg-accent text-white px-8 py-3 rounded-lg text-lg font-semibold hover:opacity-90 transition-opacity inline-block"
+      >
+        Enquire About {band.name}
+      </a>
+    </div>
+
+    <!-- Related bands -->
+    {relatedBands && relatedBands.length > 0 && (
+      <section class="mt-12">
+        <h2 class="font-heading text-2xl font-bold mb-6">Similar Bands</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {relatedBands.slice(0, 4).map((b) => (
+            <BandCard band={b} />
+          ))}
+        </div>
+      </section>
+    )}
+  </article>
+</BaseLayout>

@@ -1,0 +1,114 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import BandCard from '../components/BandCard.astro';
+import { siteConfig } from '../lib/config';
+import { getRegion, getRecentlyBooked } from '../lib/api';
+
+// Fetch data at build time
+const region = await getRegion(siteConfig.regionSlug);
+const recentlyBooked = await getRecentlyBooked();
+
+// Schema.org structured data
+const schemaOrg = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: siteConfig.name,
+  url: siteConfig.domain,
+  description: siteConfig.description,
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: `https://${siteConfig.domain}/browse/?search={search_term_string}`,
+    'query-input': 'required name=search_term_string',
+  },
+};
+---
+
+<BaseLayout>
+  <!-- Schema.org -->
+  <script type="application/ld+json" set:html={JSON.stringify(schemaOrg)} />
+
+  <!-- Hero -->
+  <section class="bg-primary text-white py-20 md:py-32">
+    <div class="max-w-4xl mx-auto px-4 text-center">
+      <h1 class="font-heading text-4xl md:text-6xl font-bold mb-6">
+        {siteConfig.hero.title}
+      </h1>
+      <p class="text-lg md:text-xl opacity-90 mb-8 max-w-2xl mx-auto">
+        {siteConfig.hero.subtitle}
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a
+          href={siteConfig.hero.ctaLink}
+          class="bg-accent text-white px-8 py-3 rounded-lg text-lg font-semibold hover:opacity-90 transition-opacity"
+        >
+          {siteConfig.hero.ctaText}
+        </a>
+        <a
+          href="/enquire/"
+          class="border border-white/40 text-white px-8 py-3 rounded-lg text-lg hover:bg-white/10 transition-colors"
+        >
+          Get a Quote
+        </a>
+      </div>
+      <p class="mt-6 text-sm opacity-70">
+        {region.band_count} verified acts serving {region.name}
+      </p>
+    </div>
+  </section>
+
+  <!-- Categories -->
+  {region.categories && region.categories.length > 0 && (
+    <section class="py-16 bg-white">
+      <div class="max-w-7xl mx-auto px-4">
+        <h2 class="font-heading text-3xl font-bold text-center mb-10">
+          Browse by Category
+        </h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {region.categories.slice(0, 8).map((cat) => (
+            <a
+              href={`/browse/?category=${cat.slug}`}
+              class="bg-surface rounded-lg p-6 text-center hover:shadow-lg transition-shadow"
+            >
+              <h3 class="font-heading font-semibold text-lg">{cat.name}</h3>
+              <p class="text-sm opacity-60 mt-1">{cat.band_count} acts</p>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- Recently Booked -->
+  {recentlyBooked && recentlyBooked.length > 0 && (
+    <section class="py-16">
+      <div class="max-w-7xl mx-auto px-4">
+        <h2 class="font-heading text-3xl font-bold text-center mb-10">
+          Recently Booked
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {recentlyBooked.slice(0, 6).map((band) => (
+            <BandCard band={band} />
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- CTA -->
+  <section class="bg-accent text-white py-16">
+    <div class="max-w-3xl mx-auto px-4 text-center">
+      <h2 class="font-heading text-3xl font-bold mb-4">
+        Ready to Book Your Wedding Entertainment?
+      </h2>
+      <p class="text-lg opacity-90 mb-8">
+        Tell us about your wedding and we'll match you with the perfect acts.
+      </p>
+      <a
+        href="/enquire/"
+        class="bg-white text-primary px-8 py-3 rounded-lg text-lg font-semibold hover:opacity-90 transition-opacity inline-block"
+      >
+        Start Your Enquiry
+      </a>
+    </div>
+  </section>
+</BaseLayout>

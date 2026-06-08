@@ -1,0 +1,153 @@
+---
+import { siteConfig } from '../lib/config';
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  canonicalUrl?: string;
+}
+
+const {
+  title = siteConfig.name,
+  description = siteConfig.description,
+  ogImage = siteConfig.ogImage,
+  canonicalUrl,
+} = Astro.props;
+
+const pageTitle = title === siteConfig.name ? title : `${title} | ${siteConfig.name}`;
+const canonical = canonicalUrl || Astro.url.href;
+const { theme } = siteConfig;
+---
+
+<!doctype html>
+<html lang={siteConfig.locale}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+
+    <!-- SEO -->
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={siteConfig.name} />
+    <meta property="og:locale" content={siteConfig.locale} />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Theme variables -->
+    <style
+      define:vars={{
+        'color-primary': theme.primaryColor,
+        'color-primary-dark': theme.primaryDarkColor,
+        'color-accent': theme.accentColor,
+        'color-surface': theme.surfaceColor,
+        'color-surface-dark': theme.surfaceDarkColor,
+        'font-heading': theme.headingFont,
+        'font-body': theme.bodyFont,
+      }}
+    >
+      html {
+        font-family: var(--font-body), system-ui, sans-serif;
+        background-color: var(--color-surface);
+        color: #1a1a1a;
+      }
+      h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-heading), serif;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-primary text-white">
+      <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+        <a href="/" class="text-xl font-heading font-bold">
+          {siteConfig.name}
+        </a>
+        <div class="hidden md:flex items-center gap-6">
+          <a href="/browse/" class="hover:text-accent transition-colors">Browse</a>
+          <a
+            href="/enquire/"
+            class="bg-accent text-white px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
+          >
+            Enquire Now
+          </a>
+        </div>
+        <!-- Mobile menu button -->
+        <button
+          id="mobile-menu-btn"
+          class="md:hidden p-2"
+          aria-label="Open menu"
+        >
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </nav>
+      <!-- Mobile menu -->
+      <div id="mobile-menu" class="hidden md:hidden px-4 pb-4">
+        <a href="/browse/" class="block py-2 hover:text-accent">Browse</a>
+        <a href="/enquire/" class="block py-2 hover:text-accent">Enquire Now</a>
+      </div>
+    </header>
+
+    <!-- Main content -->
+    <main class="flex-1">
+      <slot />
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-primary-dark text-white py-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div>
+            <h3 class="font-heading text-lg font-bold mb-3">{siteConfig.name}</h3>
+            <p class="text-sm opacity-80">{siteConfig.footer.about}</p>
+          </div>
+          <div>
+            <h3 class="font-heading text-lg font-bold mb-3">Quick Links</h3>
+            <ul class="space-y-2 text-sm opacity-80">
+              <li><a href="/browse/" class="hover:opacity-100">Browse Bands</a></li>
+              <li><a href="/enquire/" class="hover:opacity-100">Make an Enquiry</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="font-heading text-lg font-bold mb-3">Powered by</h3>
+            <p class="text-sm opacity-80">
+              <a href="https://www.fixthemusic.com" class="hover:opacity-100 underline" rel="noopener noreferrer">
+                FixTheMusic
+              </a> - The platform for booking live music.
+            </p>
+          </div>
+        </div>
+        <div class="mt-8 pt-8 border-t border-white/20 text-center text-sm opacity-60">
+          &copy; {new Date().getFullYear()} {siteConfig.name}. All rights reserved.
+        </div>
+      </div>
+    </footer>
+
+    <!-- Mobile menu toggle -->
+    <script>
+      const btn = document.getElementById('mobile-menu-btn');
+      const menu = document.getElementById('mobile-menu');
+      btn?.addEventListener('click', () => {
+        menu?.classList.toggle('hidden');
+      });
+    </script>
+  </body>
+</html>

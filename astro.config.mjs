@@ -1,0 +1,37 @@
+import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
+import tailwind from '@astrojs/tailwind';
+
+// Site config is loaded from SITE_ID env var
+const siteId = process.env.SITE_ID || 'weddingbandsitaly';
+
+// Dynamic import of site config
+const siteConfigs: Record<string, { site: string; title: string }> = {
+  weddingbandsitaly: {
+    site: 'https://weddingbandsitaly.co.uk',
+    title: 'Wedding Bands Italy',
+  },
+  weddingmusicbanditaly: {
+    site: 'https://weddingmusicbanditaly.co.uk',
+    title: 'Wedding Music Band Italy',
+  },
+};
+
+const config = siteConfigs[siteId] || siteConfigs.weddingbandsitaly;
+
+export default defineConfig({
+  site: config.site,
+  integrations: [
+    tailwind(),
+    sitemap(),
+  ],
+  output: 'static',
+  build: {
+    format: 'directory',
+  },
+  vite: {
+    define: {
+      'import.meta.env.SITE_ID': JSON.stringify(siteId),
+    },
+  },
+});

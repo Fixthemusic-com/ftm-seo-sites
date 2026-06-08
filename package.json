@@ -1,0 +1,29 @@
+{
+  "name": "ftm-seo-sites",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "prettier --check .",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "astro": "^4.16.0",
+    "@astrojs/sitemap": "^3.2.0",
+    "@astrojs/tailwind": "^5.1.0",
+    "tailwindcss": "^3.4.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0",
+    "prettier": "^3.3.0",
+    "prettier-plugin-astro": "^0.14.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
