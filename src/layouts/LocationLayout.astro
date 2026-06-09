@@ -1,8 +1,9 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import BandCard from '../components/BandCard.astro';
+import PopularVenues from '../components/PopularVenues.astro';
 import { siteConfig } from '../lib/config';
-import type { Band } from '../lib/types';
+import type { Band, VenueListItem } from '../lib/types';
 
 interface Props {
   title: string;
@@ -13,6 +14,7 @@ interface Props {
   region: string;
   bands: Band[];
   totalBands: number;
+  venues?: VenueListItem[];
 }
 
 const {
@@ -24,6 +26,7 @@ const {
   region,
   bands,
   totalBands,
+  venues = [],
 } = Astro.props;
 
 // Schema.org structured data
@@ -111,6 +114,15 @@ const schemaOrg = [
       <slot />
     </div>
   </article>
+
+  <!-- Popular Venues in this region -->
+  {venues.length > 0 && (
+    <section class="bg-gray-50 py-12">
+      <div class="max-w-7xl mx-auto px-4">
+        <PopularVenues venues={venues} regionName={regionName} maxItems={6} />
+      </div>
+    </section>
+  )}
 
   <!-- Featured Bands from this region -->
   {bands.length > 0 && (

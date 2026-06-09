@@ -1,0 +1,61 @@
+---
+/**
+ * PopularVenues component — shows top venues in a region.
+ * Used on location landing pages to cross-link to venue detail pages.
+ */
+import { venueShortName, venueTown, monthName } from '../lib/types';
+import type { VenueListItem } from '../lib/types';
+
+interface Props {
+  venues: VenueListItem[];
+  regionName: string;
+  maxItems?: number;
+}
+
+const { venues, regionName, maxItems = 6 } = Astro.props;
+const shown = venues.slice(0, maxItems);
+const curr = '€';
+---
+
+{shown.length > 0 && (
+  <section class="mb-12">
+    <h2 class="font-heading text-2xl font-bold mb-2">Popular Wedding Venues in {regionName}</h2>
+    <p class="text-gray-600 mb-6">Data from actual bookings — music budgets, curfews, and guest counts.</p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {shown.map((venue) => {
+        const vName = venueShortName(venue.canonical_name);
+        const vTown = venueTown(venue.canonical_name);
+        const priceInfo = venue.price_range_low && venue.price_range_high
+          ? `${curr}${venue.price_range_low.toLocaleString()}–${curr}${venue.price_range_high.toLocaleString()}`
+          : venue.price_range_low
+            ? `From ${curr}${venue.price_range_low.toLocaleString()}`
+            : '';
+        const curfewInfo = venue.curfew_time
+          ? venue.curfew_time.replace(':00', '').replace(/^0/, '')
+          : '';
+
+        return (
+          <a
+            href={`/venues/${venue.slug}/`}
+            class="block border border-gray-200 rounded-lg p-4 hover:border-primary/40 hover:shadow-sm transition group"
+          >
+            <h3 class="font-semibold group-hover:text-primary transition">{vName}</h3>
+            {vTown && <p class="text-sm text-gray-500">{vTown}</p>}
+            <div class="mt-2 text-sm text-gray-600 space-y-0.5">
+              <div>{venue.booking_count} weddings supplied</div>
+              {priceInfo && <div>Music: {priceInfo}</div>}
+              {curfewInfo && <div>Curfew: {curfewInfo}</div>}
+            </div>
+          </a>
+        );
+      })}
+    </div>
+
+    <div class="text-center mt-4">
+      <a href="/venues/" class="text-primary hover:underline text-sm font-medium">
+        Browse all {shown.length < 100 ? venues.length : `${venues.length}+`} venues →
+      </a>
+    </div>
+  </section>
+)}

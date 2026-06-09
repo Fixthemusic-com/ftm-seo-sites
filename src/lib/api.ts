@@ -10,6 +10,8 @@ import type {
   PaginatedResponse,
   EnquiryPayload,
   EnquiryResponse,
+  VenueListItem,
+  VenueDetail,
 } from './types';
 
 const API_BASE = import.meta.env.FTM_API_BASE || 'https://www.fixthemusic.com';
@@ -160,6 +162,52 @@ export async function submitEnquiry(
         Authorization: `Bearer ${SITE_TOKEN}`,
       },
       body: JSON.stringify(payload),
+    }
+  );
+}
+
+// ─── Venues ──────────────────────────────────────────────
+
+export interface GetVenuesParams {
+  min_bookings?: number;
+  region_id?: number;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Fetch venue intelligence list (requires site token auth)
+ */
+export async function getVenues(params: GetVenuesParams = {}): Promise<VenueListItem[]> {
+  const searchParams = new URLSearchParams();
+  if (params.min_bookings != null) searchParams.set('min_bookings', String(params.min_bookings));
+  if (params.region_id != null) searchParams.set('region_id', String(params.region_id));
+  if (params.limit != null) searchParams.set('limit', String(params.limit));
+  if (params.offset != null) searchParams.set('offset', String(params.offset));
+
+  const qs = searchParams.toString();
+  return apiFetch<VenueListItem[]>(
+    `/api-v2/venues/${qs ? `?${qs}` : ''}`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SITE_TOKEN}`,
+      },
+    }
+  );
+}
+
+/**
+ * Fetch single venue detail by slug (requires site token auth)
+ */
+export async function getVenue(slug: string): Promise<VenueDetail> {
+  return apiFetch<VenueDetail>(
+    `/api-v2/venues/${slug}/`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SITE_TOKEN}`,
+      },
     }
   );
 }

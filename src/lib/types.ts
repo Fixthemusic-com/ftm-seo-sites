@@ -141,3 +141,67 @@ export interface EnquiryResponse {
   id: number;
   client_secret: string;
 }
+
+// Venue Intelligence (from /api-v2/venues/)
+
+export interface VenueListItem {
+  place_id: string;
+  canonical_name: string;
+  slug: string;
+  lat: number | null;
+  lng: number | null;
+  booking_count: number;
+  unique_band_count: number;
+  first_booking_year: number | null;
+  latest_booking_year: number | null;
+  peak_months: number[];
+  guest_count_median: number | null;
+  curfew_time: string | null;
+  price_range_low: number | null;
+  price_range_high: number | null;
+  price_currency: string;
+  extracted_at: string | null;
+  needs_review: boolean;
+}
+
+export interface VenueDetail extends VenueListItem {
+  curfew_notes: string | null;
+  guest_count_min: number | null;
+  guest_count_max: number | null;
+  has_accommodation: boolean | null;
+  has_indoor_backup: boolean | null;
+  overtime_rate_low: number | null;
+  overtime_rate_high: number | null;
+  payment_methods: string[];
+  top_categories: Record<string, number>;
+  top_bands: Array<{ name: string; slug: string; count: number }>;
+  setup_areas: string[];
+  associated_planners: string[];
+  load_in_notes: string | null;
+  power_notes: string | null;
+  sound_notes: string | null;
+  rain_backup_notes: string | null;
+  notable_quotes: string[];
+  editorial_summary: string | null;
+  message_count_analyzed: number;
+}
+
+// Derived client-side from canonical_name
+export function venueShortName(canonicalName: string): string {
+  const parts = canonicalName.split(',').map(p => p.trim());
+  return parts[0] || canonicalName;
+}
+
+export function venueTown(canonicalName: string): string {
+  const parts = canonicalName.split(',').map(p => p.trim());
+  if (parts.length >= 3) return parts[parts.length - 3]; // town before "Province of X"
+  if (parts.length === 2) return parts[1];
+  return '';
+}
+
+const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+export function monthName(n: number): string {
+  return MONTH_NAMES[n] || '';
+}

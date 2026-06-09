@@ -1,8 +1,9 @@
 ---
 import { getCollection } from 'astro:content';
 import LocationLayout from '../../layouts/LocationLayout.astro';
-import { getBands } from '../../lib/api';
+import { getBands, getVenues } from '../../lib/api';
 import { siteConfig } from '../../lib/config';
+import type { VenueListItem } from '../../lib/types';
 
 export async function getStaticPaths() {
   const locations = await getCollection('locations');
@@ -30,6 +31,18 @@ try {
   // Graceful fallback — page still renders without featured bands
   console.warn(`Could not fetch bands for ${data.regionName}:`, e);
 }
+
+// Fetch venues for this location's region
+let venues: VenueListItem[] = [];
+try {
+  venues = await getVenues({
+    region_id: data.regionId,
+    min_bookings: 5,
+    limit: 20,
+  });
+} catch (e) {
+  console.warn(`Could not fetch venues for ${data.regionName}:`, e);
+}
 ---
 
 <LocationLayout
@@ -41,6 +54,7 @@ try {
   region={data.region}
   bands={bands}
   totalBands={totalBands}
+  venues={venues}
 >
   <Content />
 </LocationLayout>

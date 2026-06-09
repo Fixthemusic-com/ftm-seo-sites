@@ -1,0 +1,149 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { siteConfig } from '../../lib/config';
+import { getVenues } from '../../lib/api';
+import { venueShortName, venueTown, monthName } from '../../lib/types';
+import type { VenueListItem } from '../../lib/types';
+
+const venues: VenueListItem[] = await getVenues({ min_bookings: 5, limit: 500 });
+
+// Group by region (derived from canonical_name)
+const regionGroups: Record<string, VenueListItem[]> = {};
+for (const v of venues) {
+  const parts = v.canonical_name.split(',').map(p => p.trim());
+  // Find the province/metropolitan city part (usually second-to-last or third-to-last)
+  let region = 'Other';
+  for (const part of parts) {
+    if (part.startsWith('Province of ') || part.startsWith('Metropolitan City of ')) {
+      region = part.replace('Province of ', '').replace('Metropolitan City of ', '');
+      break;
+    }
+  }
+  if (!regionGroups[region]) regionGroups[region] = [];
+  regionGroups[region].push(v);
+}
+
+// Sort regions by total bookings
+const sortedRegions = Object.entries(regionGroups)
+  .map(([name, items]) => ({
+    name,
+    items: items.sort((a, b) => b.booking_count - a.booking_count),
+    totalBookings: items.reduce((sum, v) => sum + v.booking_count, 0),
+  }))
+  .sort((a, b) => b.totalBookings - a.totalBookings);
+
+const totalBookings = venues.reduce((sum, v) => sum + v.booking_count, 0);
+
+const schemaOrg = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: `Popular Wedding Venues in Italy — ${venues.length} venues with live music data`,
+  description: `Browse ${venues.length} wedding venues across Italy, ordered by popularity. Real booking data from ${totalBookings} weddings — including typical music budgets, curfew times, and guest capacities.`,
+  url: `https://${siteConfig.domain}/venues/`,
+  numberOfItems: venues.length,
+  isPartOf: {
+    '@type': 'WebSite',
+    name: siteConfig.name,
+    url: `https://${siteConfig.domain}`,
+  },
+};
+---
+
+<BaseLayout
+  title={`Popular Wedding Venues in Italy — ${venues.length} Venues with Live Music Data`}
+  description={`Browse ${venues.length} Italian wedding venues with real data from ${totalBookings} bookings: typical music budgets, curfew times, guest capacities, and top bands at each venue.`}
+>
+  <script type="application/ld+json" set:html={JSON.stringify(schemaOrg)} />
+
+  <div class="max-w-6xl mx-auto px-4 py-10">
+    <!-- Hero -->
+    <header class="mb-10 text-center">
+      <h1 class="font-heading text-3xl md:text-4xl font-bold mb-3">Popular Wedding Venues in Italy</h1>
+      <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+        Real data from <strong>{totalBookings.toLocaleString()}</strong> weddings across <strong>{venues.length}</strong> venues — 
+        including typical music budgets, curfew times, and guest capacities. 
+        Data sourced from actual booking correspondence.
+      </p>
+    </header>
+
+    <!-- Quick stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+      <div class="bg-gray-50 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-primary">{venues.length}</div>
+        <div class="text-sm text-gray-500">Venues</div>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-primary">{totalBookings.toLocaleString()}</div>
+        <div class="text-sm text-gray-500">Weddings Supplied</div>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-primary">{sortedRegions.length}</div>
+        <div class="text-sm text-gray-500">Provinces</div>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-primary">200+</div>
+        <div class="text-sm text-gray-500">Bands Performing</div>
+      </div>
+    </div>
+
+    {/* Venue listing by region */}
+    {sortedRegions.map((region) => (
+      <section class="mb-12" id={`region-${region.name.toLowerCase().replace(/\s+/g, '-')}`}>
+        <h2 class="font-heading text-2xl font-bold mb-2">
+          {region.name}
+          <span class="text-gray-400 font-normal text-base ml-2">
+            {region.items.length} venue{region.items.length !== 1 ? 's' : ''} · {region.totalBookings} weddings
+          </span>
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {region.items.map((venue) => {
+            const vName = venueShortName(venue.canonical_name);
+            const vTown = venueTown(venue.canonical_name);
+            const curr = venue.price_currency === 'EUR' ? '€' : venue.price_currency || '€';
+            const priceInfo = venue.price_range_low && venue.price_range_high
+              ? `${curr}${venue.price_range_low.toLocaleString()}–${curr}${venue.price_range_high.toLocaleString()}`
+              : '';
+            const curfewInfo = venue.curfew_time
+              ? venue.curfew_time.replace(':00', '').replace(/^0/, '')
+              : '';
+            const peakInfo = (venue.peak_months || []).slice(0, 2).map(m => monthName(m)).join(', ');
+
+            return (
+              <a
+                href={`/venues/${venue.slug}/`}
+                class="block bg-white border border-gray-200 rounded-lg p-5 hover:border-primary/50 hover:shadow-md transition group"
+              >
+                <h3 class="font-semibold text-lg group-hover:text-primary transition mb-1">
+                  {vName}
+                </h3>
+                {vTown && <p class="text-sm text-gray-500 mb-3">{vTown}</p>}
+                <div class="space-y-1 text-sm text-gray-600">
+                  <div class="flex items-center gap-2">
+                    <span class="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-medium">
+                      {venue.booking_count} weddings
+                    </span>
+                    {venue.unique_band_count > 0 && (
+                      <span>{venue.unique_band_count} bands</span>
+                    )}
+                  </div>
+                  {priceInfo && <div>Music budget: <span class="font-medium">{priceInfo}</span></div>}
+                  {curfewInfo && <div>Curfew: <span class="font-medium">{curfewInfo}</span></div>}
+                  {venue.guest_count_median && <div>~{venue.guest_count_median} guests</div>}
+                </div>
+              </a>
+            );
+          })}
+        </div>
+      </section>
+    ))}
+
+    {/* Footer CTA */}
+    <div class="text-center mt-8">
+      <p class="text-gray-500 text-sm mb-4">Data based on {totalBookings.toLocaleString()} completed bookings through {siteConfig.name}.</p>
+      <a href="/enquire/" class="inline-block bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition">
+        Get a Quote for Your Venue
+      </a>
+    </div>
+  </div>
+</BaseLayout>
