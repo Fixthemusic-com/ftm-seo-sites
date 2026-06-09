@@ -17,7 +17,7 @@ export async function getStaticPaths() {
 
   // --- "All" pages (no category filter) ---
   const allNumPages = Math.min(firstPage.num_pages, MAX_API_PAGES);
-  // Page 1: /browse/ — pass pre-fetched bands to avoid re-fetching
+  // Page 1: /browse/ -- pass pre-fetched bands to avoid re-fetching
   paths.push({
     params: { path: undefined },
     props: { page: 1, numPages: allNumPages, totalCount: firstPage.count, category: null, categories, prefetchedBands: firstPage.items },
@@ -40,7 +40,7 @@ export async function getStaticPaths() {
   for (const { cat, result } of catResults) {
     const catNumPages = Math.min(result.num_pages, MAX_API_PAGES);
 
-    // Page 1: /browse/luxury-showbands/ — pass pre-fetched bands
+    // Page 1: /browse/luxury-showbands/ -- pass pre-fetched bands
     paths.push({
       params: { path: cat.slug },
       props: { page: 1, numPages: catNumPages, totalCount: result.count, category: cat, categories, prefetchedBands: result.items },
@@ -109,25 +109,104 @@ if (endPage - startPage + 1 < maxPaginationLinks) {
   startPage = Math.max(1, endPage - maxPaginationLinks + 1);
 }
 const pageNumbers = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+
+// Popular locations for search suggestions
+const popularLocations = ['Rome', 'Florence', 'Tuscany', 'Milan', 'Amalfi Coast', 'Lake Como', 'Puglia', 'Venice'];
+
+// API config for client-side search
+const apiBase = import.meta.env.FTM_API_BASE || 'https://www.fixthemusic.com';
+const regionId = siteConfig.regionId;
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
   <section class="py-10">
     <div class="max-w-7xl mx-auto px-4">
-      <h1 class="font-heading text-3xl md:text-4xl font-bold mb-2">
+      <h1 id="browse-heading" class="font-heading text-3xl md:text-4xl font-bold mb-2">
         {category ? `Browse ${category.name}` : 'Browse Wedding Entertainment'}
       </h1>
-      <p class="text-gray-600 mb-8">
+      <p id="browse-subtitle" class="text-gray-600 mb-6">
         {totalCount} acts{category ? ` in ${category.name}` : ' available in Italy'}
-        {page > 1 && ` — Page ${page}`}
+        {page > 1 && ` -- Page ${page}`}
       </p>
 
+      <!-- Search bar -->
+      <div class="mb-6">
+        <div class="relative">
+          <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            id="band-search"
+            type="search"
+            placeholder="Search by location or band name..."
+            autocomplete="off"
+            class="w-full pl-11 pr-10 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-shadow"
+          />
+          <button
+            id="search-clear"
+            class="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors hidden"
+            aria-label="Clear search"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="flex gap-x-2 gap-y-1 mt-2.5 text-sm flex-wrap items-center">
+          <span class="text-gray-400">Popular:</span>
+          {popularLocations.map((loc, i) => (
+            <button
+              class="search-suggestion text-gray-500 hover:text-primary transition-colors cursor-pointer"
+              data-query={loc}
+            >
+              {loc}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <!-- Search status bar (hidden by default, shown during active search) -->
+      <div id="search-status" class="hidden mb-6">
+        <div class="flex items-center justify-between">
+          <p id="search-status-text" class="text-gray-600 text-sm"></p>
+          <button id="search-status-clear" class="text-sm text-primary hover:underline cursor-pointer">
+            Clear search
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading skeleton (hidden by default) -->
+      <div id="search-loading" class="hidden mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map(() => (
+            <div class="bg-white rounded-xl overflow-hidden shadow-sm animate-pulse">
+              <div class="aspect-[4/3] bg-gray-200"></div>
+              <div class="p-4">
+                <div class="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                <div class="h-3 bg-gray-200 rounded w-1/3"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- No results (hidden by default) -->
+      <div id="search-no-results" class="hidden py-16 text-center">
+        <svg class="mx-auto w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <p class="text-lg text-gray-500 mb-2">No bands found matching "<span id="no-results-query"></span>"</p>
+        <p class="text-sm text-gray-400">Try a different search or <a href="/browse/" class="text-primary hover:underline">browse all categories</a>.</p>
+      </div>
+
       <!-- Category filters -->
-      <div class="flex flex-wrap gap-3 mb-8">
+      <div id="category-filters" class="flex flex-wrap gap-3 mb-8" data-current-category={currentCategorySlug || ''}>
         <a
           href="/browse/"
+          data-category=""
           class:list={[
-            'px-4 py-2 rounded-full text-sm font-medium transition-colors',
+            'category-pill px-4 py-2 rounded-full text-sm font-medium transition-colors',
             !currentCategorySlug
               ? 'bg-primary text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
@@ -138,8 +217,9 @@ const pageNumbers = Array.from({ length: endPage - startPage + 1 }, (_, i) => st
         {categories.slice(0, 10).map((cat) => (
           <a
             href={browseUrl(cat.slug)}
+            data-category={cat.slug}
             class:list={[
-              'px-4 py-2 rounded-full text-sm font-medium transition-colors',
+              'category-pill px-4 py-2 rounded-full text-sm font-medium transition-colors',
               currentCategorySlug === cat.slug
                 ? 'bg-primary text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
@@ -151,22 +231,26 @@ const pageNumbers = Array.from({ length: endPage - startPage + 1 }, (_, i) => st
       </div>
 
       <!-- Band grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div id="band-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {bands.map((band) => (
           <BandCard band={band} />
         ))}
       </div>
 
+      <!-- Search results grid (hidden by default, replaces band-grid during search) -->
+      <div id="search-results-grid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      </div>
+
       <!-- Pagination -->
       {numPages > 1 && (
-        <nav class="mt-12 flex justify-center items-center gap-2" aria-label="Pagination">
+        <nav id="pagination" class="mt-12 flex justify-center items-center gap-2" aria-label="Pagination">
           {page > 1 && (
             <a
               href={browseUrl(currentCategorySlug || undefined, page - 1)}
               class="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
               aria-label="Previous page"
             >
-              ←
+              &larr;
             </a>
           )}
           {pageNumbers.map((p) => (
@@ -189,11 +273,225 @@ const pageNumbers = Array.from({ length: endPage - startPage + 1 }, (_, i) => st
               class="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
               aria-label="Next page"
             >
-              →
+              &rarr;
             </a>
           )}
         </nav>
       )}
     </div>
   </section>
+
+  <!-- Client-side search script -->
+  <script define:vars={{ apiBase, regionId }}>
+    (function() {
+      const searchInput = document.getElementById('band-search');
+      const clearBtn = document.getElementById('search-clear');
+      const searchStatus = document.getElementById('search-status');
+      const searchStatusText = document.getElementById('search-status-text');
+      const searchStatusClear = document.getElementById('search-status-clear');
+      const searchLoading = document.getElementById('search-loading');
+      const searchNoResults = document.getElementById('search-no-results');
+      const noResultsQuery = document.getElementById('no-results-query');
+      const bandGrid = document.getElementById('band-grid');
+      const searchResultsGrid = document.getElementById('search-results-grid');
+      const pagination = document.getElementById('pagination');
+      const categoryFilters = document.getElementById('category-filters');
+      const browseSubtitle = document.getElementById('browse-subtitle');
+
+      let debounceTimer;
+      let currentAbortController = null;
+      let isSearchActive = false;
+
+      // Get active category from the page's data attribute
+      function getActiveCategory() {
+        return categoryFilters?.dataset.currentCategory || '';
+      }
+
+      // Build a BandCard HTML string matching the Astro component output
+      function renderBandCard(band) {
+        const hidePrice = band.hide_price;
+        let priceDisplay = '';
+        if (!hidePrice && band.price_low && band.price_high) {
+          priceDisplay = `${band.currency} ${band.price_low.toLocaleString()} - ${band.price_high.toLocaleString()}`;
+        } else if (!hidePrice && band.price_low) {
+          priceDisplay = `From ${band.currency} ${band.price_low.toLocaleString()}`;
+        }
+
+        const imageUrl = band.main_photo?.small || band.main_photo?.medium || null;
+        const imagePlaceholder = `<div class="w-full h-full flex items-center justify-center text-gray-400">
+          <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          </svg>
+        </div>`;
+        const imageHtml = imageUrl
+          ? `<img src="${imageUrl}" alt="${band.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />`
+          : imagePlaceholder;
+
+        const reviewsHtml = band.reviews_count > 0
+          ? `<svg class="w-4 h-4 text-accent" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            <span class="text-xs text-gray-400">${band.reviews_count} reviews</span>`
+          : '';
+
+        const priceHtml = priceDisplay
+          ? `<span class="text-sm font-medium text-gray-600">${priceDisplay}</span>`
+          : '';
+
+        const locationHtml = band.location
+          ? `<p class="text-xs text-gray-400 mt-2">${band.location}</p>`
+          : '';
+
+        return `<a href="/bands/${band.slug}/" class="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
+          <div class="aspect-[4/3] overflow-hidden bg-gray-100">${imageHtml}</div>
+          <div class="p-4">
+            <h3 class="font-heading font-semibold text-lg group-hover:text-primary transition-colors">${band.name}</h3>
+            ${band.kicker ? `<p class="text-sm text-gray-500 mt-1 line-clamp-1">${band.kicker}</p>` : ''}
+            <div class="flex items-center justify-between mt-3">
+              <div class="flex items-center gap-1">${reviewsHtml}</div>
+              ${priceHtml}
+            </div>
+            ${locationHtml}
+          </div>
+        </a>`;
+      }
+
+      function showSearchState(state) {
+        // state: 'idle' | 'loading' | 'results' | 'no-results'
+        searchLoading.classList.toggle('hidden', state !== 'loading');
+        searchNoResults.classList.toggle('hidden', state !== 'no-results');
+        searchResultsGrid.classList.toggle('hidden', state !== 'results');
+        bandGrid.classList.toggle('hidden', state !== 'idle');
+        if (pagination) pagination.classList.toggle('hidden', state !== 'idle');
+        searchStatus.classList.toggle('hidden', state === 'idle');
+        isSearchActive = state !== 'idle';
+      }
+
+      async function performSearch(query) {
+        if (!query.trim()) {
+          clearSearch();
+          return;
+        }
+
+        // Show clear button
+        clearBtn.classList.remove('hidden');
+
+        // Abort any in-flight request
+        if (currentAbortController) currentAbortController.abort();
+        currentAbortController = new AbortController();
+
+        showSearchState('loading');
+
+        const params = new URLSearchParams({
+          region: String(regionId),
+          search: query,
+          page_size: '48',
+        });
+
+        // Combine with active category if on a category page
+        const activeCategory = getActiveCategory();
+        if (activeCategory) params.set('category', activeCategory);
+
+        try {
+          const res = await fetch(`${apiBase}/api-v2/bands?${params}`, {
+            signal: currentAbortController.signal,
+          });
+          const data = await res.json();
+
+          if (data.items && data.items.length > 0) {
+            searchResultsGrid.innerHTML = data.items.map(renderBandCard).join('');
+            const catLabel = activeCategory ? ` in this category` : '';
+            searchStatusText.textContent = `${data.count} act${data.count !== 1 ? 's' : ''} matching "${query}"${catLabel}`;
+            showSearchState('results');
+          } else {
+            noResultsQuery.textContent = query;
+            searchStatusText.textContent = `No results for "${query}"`;
+            showSearchState('no-results');
+          }
+
+          // Update URL
+          const url = new URL(window.location);
+          url.searchParams.set('search', query);
+          history.replaceState(null, '', url);
+
+        } catch (err) {
+          if (err.name === 'AbortError') return; // request was superseded
+          console.error('Search failed:', err);
+          showSearchState('idle');
+        }
+      }
+
+      function clearSearch() {
+        searchInput.value = '';
+        clearBtn.classList.add('hidden');
+        showSearchState('idle');
+        searchResultsGrid.innerHTML = '';
+
+        // Remove search param from URL
+        const url = new URL(window.location);
+        url.searchParams.delete('search');
+        history.replaceState(null, '', url);
+      }
+
+      // --- Event listeners ---
+
+      // Debounced search on input
+      searchInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        clearBtn.classList.toggle('hidden', !val);
+        clearTimeout(debounceTimer);
+        if (!val.trim()) {
+          clearSearch();
+          return;
+        }
+        debounceTimer = setTimeout(() => performSearch(val), 300);
+      });
+
+      // Clear buttons
+      clearBtn.addEventListener('click', clearSearch);
+      searchStatusClear.addEventListener('click', clearSearch);
+
+      // Popular location suggestions
+      document.querySelectorAll('.search-suggestion').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const query = btn.dataset.query;
+          searchInput.value = query;
+          clearBtn.classList.remove('hidden');
+          performSearch(query);
+        });
+      });
+
+      // Intercept category pill clicks when search is active
+      document.querySelectorAll('.category-pill').forEach((pill) => {
+        pill.addEventListener('click', (e) => {
+          const query = searchInput.value.trim();
+          if (!query) return; // no search active, let normal navigation happen
+
+          e.preventDefault();
+          const clickedCategory = pill.dataset.category;
+
+          // Update active pill styling
+          document.querySelectorAll('.category-pill').forEach((p) => {
+            p.classList.remove('bg-primary', 'text-white');
+            p.classList.add('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+          });
+          pill.classList.remove('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+          pill.classList.add('bg-primary', 'text-white');
+
+          // Update the data attribute so search uses the new category
+          categoryFilters.dataset.currentCategory = clickedCategory;
+
+          // Re-run search with new category
+          performSearch(query);
+        });
+      });
+
+      // On page load, check for ?search= param
+      const urlParams = new URLSearchParams(window.location.search);
+      const initialSearch = urlParams.get('search');
+      if (initialSearch) {
+        searchInput.value = initialSearch;
+        clearBtn.classList.remove('hidden');
+        performSearch(initialSearch);
+      }
+    })();
+  </script>
 </BaseLayout>
