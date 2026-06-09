@@ -2,16 +2,15 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { siteConfig } from '../../lib/config';
 import { getVenues } from '../../lib/api';
-import { venueShortName, venueTown, monthName } from '../../lib/types';
+import { venueShortName, venueTown } from '../../lib/types';
 import type { VenueListItem } from '../../lib/types';
 
 const venues: VenueListItem[] = await getVenues({ min_bookings: 5, limit: 500 });
 
-// Group by region (derived from canonical_name)
+// Group by province/admin region
 const regionGroups: Record<string, VenueListItem[]> = {};
 for (const v of venues) {
   const parts = v.canonical_name.split(',').map(p => p.trim());
-  // Find the province/metropolitan city part (usually second-to-last or third-to-last)
   let region = 'Other';
   for (const part of parts) {
     if (part.startsWith('Province of ') || part.startsWith('Metropolitan City of ')) {
@@ -23,7 +22,6 @@ for (const v of venues) {
   regionGroups[region].push(v);
 }
 
-// Sort regions by total bookings
 const sortedRegions = Object.entries(regionGroups)
   .map(([name, items]) => ({
     name,
@@ -33,6 +31,29 @@ const sortedRegions = Object.entries(regionGroups)
   .sort((a, b) => b.totalBookings - a.totalBookings);
 
 const totalBookings = venues.reduce((sum, v) => sum + v.booking_count, 0);
+
+// Link to location pages where available
+const locationSlugMap: Record<string, string> = {
+  'Siena': 'siena',
+  'Perugia': 'umbria',
+  'Arezzo': 'tuscany',
+  'Florence': 'florence',
+  'Prato': 'tuscany',
+  'Pisa': 'tuscany',
+  'Lucca': 'tuscany',
+  'Lecco': 'lake-como',
+  'Como': 'lake-como',
+  'Roma Capitale': 'rome',
+  'Bari': 'puglia',
+  'Brindisi': 'puglia',
+  'Lecce': 'puglia',
+  'Salerno': 'amalfi-coast',
+  'Naples': 'amalfi-coast',
+  'Milan': 'milan',
+  'Venice': 'venice',
+  'Palermo': 'sicily',
+  'Catania': 'sicily',
+};
 
 const schemaOrg = {
   '@context': 'https://schema.org',
@@ -86,57 +107,55 @@ const schemaOrg = {
       </div>
     </div>
 
-    {/* Venue listing by region */}
-    {sortedRegions.map((region) => (
-      <section class="mb-12" id={`region-${region.name.toLowerCase().replace(/\s+/g, '-')}`}>
-        <h2 class="font-heading text-2xl font-bold mb-2">
-          {region.name}
-          <span class="text-gray-400 font-normal text-base ml-2">
-            {region.items.length} venue{region.items.length !== 1 ? 's' : ''} · {region.totalBookings} weddings
-          </span>
-        </h2>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {region.items.map((venue) => {
-            const vName = venueShortName(venue.canonical_name);
-            const vTown = venueTown(venue.canonical_name);
-            const curr = venue.price_currency === 'EUR' ? '€' : venue.price_currency || '€';
-            const priceInfo = venue.price_range_low && venue.price_range_high
-              ? `${curr}${venue.price_range_low.toLocaleString()}–${curr}${venue.price_range_high.toLocaleString()}`
-              : '';
-            const curfewInfo = venue.curfew_time
-              ? (() => { const [h, m] = venue.curfew_time.split(':'); const hr = parseInt(h, 10); return hr === 0 ? (m !== '00' ? '12:' + m + 'am' : 'Midnight') : hr < 12 ? hr + 'am' : hr === 12 ? '12pm' : (hr - 12) + 'pm'; })()
-              : '';
-            const peakInfo = (venue.peak_months || []).slice(0, 2).map(m => monthName(m)).join(', ');
-
-            return (
-              <a
-                href={`/venues/${venue.slug}/`}
-                class="block bg-white border border-gray-200 rounded-lg p-5 hover:border-primary/50 hover:shadow-md transition group"
-              >
-                <h3 class="font-semibold text-lg group-hover:text-primary transition mb-1">
-                  {vName}
-                </h3>
-                {vTown && <p class="text-sm text-gray-500 mb-3">{vTown}</p>}
-                <div class="space-y-1 text-sm text-gray-600">
-                  <div class="flex items-center gap-2">
-                    <span class="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-medium">
-                      {venue.booking_count} weddings
-                    </span>
-                    {venue.unique_band_count > 0 && (
-                      <span>{venue.unique_band_count} bands</span>
-                    )}
-                  </div>
-                  {priceInfo && <div>Music budget: <span class="font-medium">{priceInfo}</span></div>}
-                  {curfewInfo && <div>Curfew: <span class="font-medium">{curfewInfo}</span></div>}
-                  {venue.guest_count_median && <div>~{venue.guest_count_median} guests</div>}
+    <!-- Browse by location -->
+    <section class="mb-12">
+      <h2 class="font-heading text-2xl font-bold mb-4">Browse by Region</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {sortedRegions.map((region) => {
+          const locationSlug = locationSlugMap[region.name];
+          const topVenues = region.items.slice(0, 3);
+          return (
+            <div class="border border-gray-200 rounded-lg p-5">
+              <div class="flex justify-between items-start mb-3">
+                <div>
+                  <h3 class="font-heading text-lg font-semibold">{region.name}</h3>
+                  <p class="text-sm text-gray-500">
+                    {region.items.length} venues · {region.totalBookings} weddings
+                  </p>
                 </div>
-              </a>
-            );
-          })}
-        </div>
-      </section>
-    ))}
+                {locationSlug && (
+                  <a href={`/locations/${locationSlug}/`} class="text-primary text-sm font-medium hover:underline whitespace-nowrap">
+                    See all bands →
+                  </a>
+                )}
+              </div>
+              <ul class="space-y-2">
+                {topVenues.map((venue) => {
+                  const vName = venueShortName(venue.canonical_name);
+                  const vTown = venueTown(venue.canonical_name);
+                  return (
+                    <li>
+                      <a href={`/venues/${venue.slug}/`} class="flex items-center justify-between group">
+                        <span class="group-hover:text-primary transition">
+                          <span class="font-medium">{vName}</span>
+                          {vTown && <span class="text-gray-400 text-sm ml-1">· {vTown}</span>}
+                        </span>
+                        <span class="text-xs text-gray-400">{venue.booking_count} weddings</span>
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+              {region.items.length > 3 && (
+                <p class="text-xs text-gray-400 mt-3">
+                  +{region.items.length - 3} more venue{region.items.length - 3 !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
 
     {/* Footer CTA */}
     <div class="text-center mt-8">
