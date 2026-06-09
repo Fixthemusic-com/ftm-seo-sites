@@ -9,7 +9,7 @@ export async function getStaticPaths() {
   const PAGE_SIZE = 24;
   const MAX_API_PAGES = 50; // API enforces a max page limit
   const [firstPage, categories] = await Promise.all([
-    getBands({ region: siteConfig.regionId, page_size: PAGE_SIZE }),
+    getBands({ home_region: siteConfig.regionId, page_size: PAGE_SIZE }),
     getCategories(),
   ]);
 
@@ -32,7 +32,7 @@ export async function getStaticPaths() {
   // --- Category pages (fetch page 1 of each in parallel) ---
   const catResults = await Promise.all(
     categories.map((cat) =>
-      getBands({ region: siteConfig.regionId, category: cat.slug, page_size: PAGE_SIZE })
+      getBands({ home_region: siteConfig.regionId, category: cat.slug, page_size: PAGE_SIZE })
         .then((result) => ({ cat, result }))
     )
   );
@@ -74,7 +74,7 @@ if (prefetchedBands) {
   bands = prefetchedBands;
 } else {
   const result = await getBands({
-    region: siteConfig.regionId,
+    home_region: siteConfig.regionId,
     category: category?.slug,
     page,
     page_size: PAGE_SIZE,
@@ -152,15 +152,17 @@ const regionId = siteConfig.regionId;
             </svg>
           </button>
         </div>
-        <div class="flex gap-x-2 gap-y-1 mt-2.5 text-sm flex-wrap items-center">
-          <span class="text-gray-400">Popular:</span>
+        <div class="flex gap-x-1 gap-y-1 mt-2.5 text-sm flex-wrap items-center">
+          <span class="text-gray-400 mr-1">Popular:</span>
           {popularLocations.map((loc, i) => (
-            <button
-              class="search-suggestion text-gray-500 hover:text-primary transition-colors cursor-pointer"
-              data-query={loc}
-            >
-              {loc}
-            </button>
+            <>
+              <button
+                class="search-suggestion px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:bg-primary hover:text-white transition-colors cursor-pointer"
+                data-query={loc}
+              >
+                {loc}
+              </button>
+            </>
           ))}
         </div>
       </div>
@@ -381,7 +383,7 @@ const regionId = siteConfig.regionId;
         showSearchState('loading');
 
         const params = new URLSearchParams({
-          region: String(regionId),
+          home_region: String(regionId),
           search: query,
           page_size: '48',
         });
