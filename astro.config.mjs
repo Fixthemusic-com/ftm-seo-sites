@@ -1,6 +1,5 @@
 import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
-import sitemap from '@astrojs/sitemap';
 import tailwind from '@astrojs/tailwind';
 
 // Site config is loaded from SITE_ID env var
@@ -24,9 +23,6 @@ export default defineConfig({
   integrations: [
     tailwind(),
     mdx(),
-    sitemap({
-      filter: (page) => !page.includes('/bands/'),
-    }),
   ],
   output: 'static',
   build: {
