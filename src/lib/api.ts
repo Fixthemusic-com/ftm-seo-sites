@@ -89,8 +89,36 @@ export async function getBandVideos(slug: string): Promise<BandDetail['videos']>
   return apiFetch<BandDetail['videos']>(`/api-v2/bands/${slug}/videos`);
 }
 
-export async function getBandReviews(slug: string): Promise<BandDetail['reviews']> {
-  return apiFetch<BandDetail['reviews']>(`/api-v2/bands/${slug}/reviews`);
+export interface BandReview {
+  id: number;
+  text: string;
+  text_html: string;
+  author: string;
+  event_string: string;
+  time_created: string;
+  time_published: string;
+  photos: { id: number; file: string }[];
+  response: { text: string; message_rendered: string; time_created: string } | null;
+  rating: number | null;
+  external_link: string;
+}
+
+export async function getBandReviews(slug: string): Promise<{ items: BandReview[]; count: number }> {
+  return apiFetch<{ items: BandReview[]; count: number }>(`/api-v2/bands/${slug}/reviews`);
+}
+
+// ─── Band Profile ─────────────────────────────────────────
+
+export interface BandProfile {
+  intro_rendered: string;
+  description_rendered: string;
+  locations_rendered: string;
+  set_list_rendered: string;
+  faq_rendered: string;
+}
+
+export async function getBandProfile(slug: string): Promise<BandProfile> {
+  return apiFetch<BandProfile>(`/api-v2/bands/${slug}/profile`);
 }
 
 export async function getRelatedBands(slug: string): Promise<Band[]> {

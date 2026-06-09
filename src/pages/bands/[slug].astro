@@ -2,7 +2,8 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import BandCard from '../../components/BandCard.astro';
 import { siteConfig } from '../../lib/config';
-import { getBands, getBand, getRelatedBands } from '../../lib/api';
+import { getBands, getBand, getRelatedBands, getBandProfile, getBandReviews } from '../../lib/api';
+import type { BandProfile, BandReview } from '../../lib/api';
 
 // Generate static paths for all bands in the region at build time
 export async function getStaticPaths() {
@@ -29,13 +30,18 @@ export async function getStaticPaths() {
 const { slug } = Astro.params;
 const band = await getBand(slug!);
 
-// related_bands may not exist yet - graceful fallback
-let relatedBands: any[] = [];
-try {
-  relatedBands = await getRelatedBands(slug!);
-} catch {
-  // endpoint may not exist yet
-}
+// Fetch profile, reviews, and related bands in parallel with graceful fallback
+const [profile, reviews, relatedBands] = await Promise.all([
+  getBandProfile(slug!).catch(() => ({
+    intro_rendered: '',
+    description_rendered: '',
+    locations_rendered: '',
+    set_list_rendered: '',
+    faq_rendered: '',
+  }) as BandProfile),
+  getBandReviews(slug!).catch(() => ({ items: [] as BandReview[], count: 0 })),
+  getRelatedBands(slug!).catch(() => [] as any[]),
+]);
 
 const priceDisplay =
   !band.hide_price && band.price_low && band.price_high
@@ -127,6 +133,67 @@ const schemaOrg = {
         </div>
       )}
     </div>
+
+    <!-- Profile sections -->
+    {profile.intro_rendered && (
+      <div class="prose prose-lg max-w-none mb-8">
+        <h2>About {band.name}</h2>
+        <Fragment set:html={profile.intro_rendered} />
+      </div>
+    )}
+
+    {profile.description_rendered && (
+      <div class="prose prose-lg max-w-none mb-8">
+        <Fragment set:html={profile.description_rendered} />
+      </div>
+    )}
+
+    {profile.set_list_rendered && (
+      <div class="prose prose-lg max-w-none mb-8">
+        <h2>Set List</h2>
+        <Fragment set:html={profile.set_list_rendered} />
+      </div>
+    )}
+
+    {profile.faq_rendered && (
+      <div class="prose prose-lg max-w-none mb-8">
+        <h2>FAQ</h2>
+        <Fragment set:html={profile.faq_rendered} />
+      </div>
+    )}
+
+    <!-- Reviews -->
+    {reviews.count > 0 && (
+      <section class="mb-8">
+        <h2 class="font-heading text-2xl font-bold mb-6">Reviews ({reviews.count})</h2>
+        <div class="space-y-6">
+          {reviews.items.slice(0, 10).map((review) => {
+            const pubDate = new Date(review.time_published);
+            const formattedDate = pubDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+            return (
+              <div class="border-b border-gray-200 pb-6">
+                <div class="mb-2">
+                  <span class="font-bold">{review.author}</span>
+                  {review.event_string && (
+                    <span class="text-gray-500 ml-2">{review.event_string}</span>
+                  )}
+                </div>
+                <p class="text-gray-700 mb-2">{review.text}</p>
+                <p class="text-sm text-gray-400">{formattedDate}</p>
+                {review.response && (
+                  <div class="bg-gray-100 rounded-lg p-4 mt-3">
+                    <p class="text-sm"><span class="font-semibold">Band replied:</span> <Fragment set:html={review.response.message_rendered} /></p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {reviews.count > 10 && (
+          <p class="text-gray-500 mt-4 text-center">Showing 10 of {reviews.count} reviews</p>
+        )}
+      </section>
+    )}
 
     <!-- CTA -->
     <div class="bg-primary rounded-xl p-8 text-white text-center">
