@@ -64,9 +64,17 @@ export async function getBands(
   if (params.search) query.set('search', params.search);
 
   const qs = query.toString();
-  return apiFetch<PaginatedResponse<Band>>(
+  const res = await apiFetch<{ items: Band[]; count: number }>(
     `/api-v2/bands${qs ? `?${qs}` : ''}`
   );
+  const pageSize = params.page_size || 24;
+  return {
+    items: res.items,
+    count: res.count,
+    page: params.page || 1,
+    page_size: pageSize,
+    num_pages: Math.ceil(res.count / pageSize),
+  };
 }
 
 export async function getBand(slug: string): Promise<BandDetail> {
@@ -102,7 +110,10 @@ export async function getBulkBands(slugs: string[]): Promise<Band[]> {
 // ─── Categories ──────────────────────────────────────────
 
 export async function getCategories(): Promise<BandCategory[]> {
-  return apiFetch<BandCategory[]>(`/api-v2/band_categories/`);
+  const res = await apiFetch<{ items: BandCategory[]; count: number }>(
+    `/api-v2/band_categories/`
+  );
+  return res.items;
 }
 
 // ─── Enquiries ───────────────────────────────────────────

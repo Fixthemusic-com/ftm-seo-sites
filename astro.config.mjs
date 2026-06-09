@@ -5,8 +5,7 @@ import tailwind from '@astrojs/tailwind';
 // Site config is loaded from SITE_ID env var
 const siteId = process.env.SITE_ID || 'weddingbandsitaly';
 
-// Dynamic import of site config
-const siteConfigs: Record<string, { site: string; title: string }> = {
+const siteConfigs = {
   weddingbandsitaly: {
     site: 'https://weddingbandsitaly.co.uk',
     title: 'Wedding Bands Italy',

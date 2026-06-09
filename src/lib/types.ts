@@ -34,72 +34,85 @@ export interface SiteConfig {
   };
 }
 
-// API response types (V2 Ninja endpoints)
+// API response types (V2 Ninja endpoints) — matches actual API schema
+
+export interface BandPhoto {
+  uri: string;
+  small: string;
+  medium: string;
+  large: string;
+  thumbhash: string;
+  vertical_align: string | null;
+  offset_x: number | null;
+  offset_y: number | null;
+  order: number;
+}
+
+export interface BandVideo {
+  aspect_ratio: number;
+  duration: number;
+  thumbnail_url: string;
+  thumbnail_external_url: string;
+  title: string;
+  source: string;
+  external_id: string;
+  mux_id: string;
+}
 
 export interface Band {
   id: number;
   name: string;
   slug: string;
   kicker: string;
+  currency: string;
+  location: string;
   price_low: number | null;
   price_high: number | null;
-  profile_image: string | null;
-  location_name: string;
-  average_rating: number | null;
-  review_count: number;
-  categories: string[];
+  hide_price: boolean;
+  avg_booking: number | null;
+  reviews_count: number;
+  distance_km: number | null;
+  main_photo: BandPhoto | null;
+  main_video: BandVideo | null;
 }
 
 export interface BandDetail extends Band {
-  description: string;
-  profile_markdown: string;
-  locations: string[];
-  set_list: string | null;
-  faq: string | null;
-  photos: BandPhoto[];
-  videos: BandVideo[];
-  reviews: BandReview[];
-}
-
-export interface BandPhoto {
-  id: number;
-  url: string;
-  thumbnail_url: string;
-  caption: string;
-  order: number;
-}
-
-export interface BandVideo {
-  id: number;
-  url: string;
-  thumbnail_url: string;
-  title: string;
-}
-
-export interface BandReview {
-  id: number;
-  author_name: string;
-  rating: number;
-  text: string;
-  date: string;
-  event_type: string;
+  tags: string[];
+  featured: boolean;
+  visible: boolean;
+  insured: boolean;
+  bookings_count: number;
+  audio_media: unknown[];
+  video_media: unknown[];
+  facebook: string;
+  instagram: string;
+  website: string;
+  youtube: string;
+  vimeo: string;
 }
 
 export interface BandCategory {
   id: number;
-  name: string;
   slug: string;
-  band_count: number;
+  name: string;
+  num_bands: number;
+  band_exemplar?: Band;
 }
 
 export interface Region {
   id: number;
   name: string;
+  admin_level: number;
+  location_center_lat: number;
+  location_center_lng: number;
+  num_bands: number;
+  categories: RegionCategory[];
+}
+
+export interface RegionCategory {
   slug: string;
-  band_count: number;
-  categories: BandCategory[];
-  center_lat: number;
-  center_lng: number;
+  name: string;
+  num_bands: number;
 }
 
 export interface PaginatedResponse<T> {

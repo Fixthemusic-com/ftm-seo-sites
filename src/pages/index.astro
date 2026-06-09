@@ -51,7 +51,7 @@ const schemaOrg = {
         </a>
       </div>
       <p class="mt-6 text-sm opacity-70">
-        {region.band_count} verified acts serving {region.name}
+        {region.num_bands} verified acts serving {region.name}
       </p>
     </div>
   </section>
@@ -64,13 +64,13 @@ const schemaOrg = {
           Browse by Category
         </h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {region.categories.slice(0, 8).map((cat) => (
+          {region.categories.slice(0, 8).map((cat: any) => (
             <a
               href={`/browse/?category=${cat.slug}`}
               class="bg-surface rounded-lg p-6 text-center hover:shadow-lg transition-shadow"
             >
               <h3 class="font-heading font-semibold text-lg">{cat.name}</h3>
-              <p class="text-sm opacity-60 mt-1">{cat.band_count} acts</p>
+              <p class="text-sm opacity-60 mt-1">{cat.num_bands} acts</p>
             </a>
           ))}
         </div>
