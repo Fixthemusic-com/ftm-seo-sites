@@ -22,7 +22,7 @@ const API_BASE = process.env.FTM_API_BASE || 'https://staging.fixthemusic.com';
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = 'deepseek/deepseek-v4-flash:nitro';
 const REGION_ID = 2221; // Italy
-const CONCURRENCY = 5;
+const CONCURRENCY = 15;
 const CACHE_FILE = join(ROOT, 'src', 'data', `profiles-${SITE_ID}.json`);
 
 const SITE_TONES = {
