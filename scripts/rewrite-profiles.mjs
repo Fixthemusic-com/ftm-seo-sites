@@ -74,7 +74,7 @@ async function getAllBandSlugs() {
   let page = 1;
   let hasMore = true;
   while (hasMore) {
-    const res = await apiFetch(`/api-v2/bands?home_region=${REGION_ID}&page=${page}&page_size=100`);
+    const res = await apiFetch(`/api-v2/bands?region=${REGION_ID}&page=${page}&page_size=100`);
     slugs.push(...res.items.map(b => b.slug));
     hasMore = slugs.length < res.count;
     page++;
