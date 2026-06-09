@@ -26,11 +26,8 @@ const sortedRegions = Object.entries(regionGroups)
   .map(([name, items]) => ({
     name,
     items: items.sort((a, b) => b.booking_count - a.booking_count),
-    totalBookings: items.reduce((sum, v) => sum + v.booking_count, 0),
   }))
-  .sort((a, b) => b.totalBookings - a.totalBookings);
-
-const totalBookings = venues.reduce((sum, v) => sum + v.booking_count, 0);
+  .sort((a, b) => b.items.length - a.items.length);
 
 // Link to location pages where available
 const locationSlugMap: Record<string, string> = {
@@ -59,7 +56,7 @@ const schemaOrg = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
   name: `Popular Wedding Venues in Italy — ${venues.length} venues with live music data`,
-  description: `Browse ${venues.length} wedding venues across Italy, ordered by popularity. Real booking data from ${totalBookings} weddings — including typical music budgets, curfew times, and guest capacities.`,
+  description: `Browse ${venues.length} wedding venues across Italy — including typical music budgets, curfew times, guest capacities, and top bands at each venue.`,
   url: `https://${siteConfig.domain}/venues/`,
   numberOfItems: venues.length,
   isPartOf: {
@@ -72,7 +69,7 @@ const schemaOrg = {
 
 <BaseLayout
   title={`Popular Wedding Venues in Italy — ${venues.length} Venues with Live Music Data`}
-  description={`Browse ${venues.length} Italian wedding venues with real data from ${totalBookings} bookings: typical music budgets, curfew times, guest capacities, and top bands at each venue.`}
+  description={`Browse ${venues.length} Italian wedding venues with real data: typical music budgets, curfew times, guest capacities, and top bands at each venue.`}
 >
   <script type="application/ld+json" set:html={JSON.stringify(schemaOrg)} />
 
@@ -81,21 +78,16 @@ const schemaOrg = {
     <header class="mb-10 text-center">
       <h1 class="font-heading text-3xl md:text-4xl font-bold mb-3">Popular Wedding Venues in Italy</h1>
       <p class="text-lg text-gray-600 max-w-3xl mx-auto">
-        Real data from <strong>{totalBookings.toLocaleString()}</strong> weddings across <strong>{venues.length}</strong> venues — 
-        including typical music budgets, curfew times, and guest capacities. 
-        Data sourced from actual booking correspondence.
+        Real data from actual wedding bookings across <strong>{venues.length}</strong> venues —
+        including typical music budgets, curfew times, and guest capacities.
       </p>
     </header>
 
     <!-- Quick stats -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-12">
       <div class="bg-gray-50 rounded-lg p-4 text-center">
         <div class="text-2xl font-bold text-primary">{venues.length}</div>
         <div class="text-sm text-gray-500">Venues</div>
-      </div>
-      <div class="bg-gray-50 rounded-lg p-4 text-center">
-        <div class="text-2xl font-bold text-primary">{totalBookings.toLocaleString()}</div>
-        <div class="text-sm text-gray-500">Weddings Supplied</div>
       </div>
       <div class="bg-gray-50 rounded-lg p-4 text-center">
         <div class="text-2xl font-bold text-primary">{sortedRegions.length}</div>
@@ -120,7 +112,7 @@ const schemaOrg = {
                 <div>
                   <h3 class="font-heading text-lg font-semibold">{region.name}</h3>
                   <p class="text-sm text-gray-500">
-                    {region.items.length} venues · {region.totalBookings} weddings
+                    {region.items.length} venues
                   </p>
                 </div>
                 {locationSlug && (
@@ -140,7 +132,6 @@ const schemaOrg = {
                           <span class="font-medium">{vName}</span>
                           {vTown && <span class="text-gray-400 text-sm ml-1">· {vTown}</span>}
                         </span>
-                        <span class="text-xs text-gray-400">{venue.booking_count} weddings</span>
                       </a>
                     </li>
                   );
@@ -159,7 +150,7 @@ const schemaOrg = {
 
     {/* Footer CTA */}
     <div class="text-center mt-8">
-      <p class="text-gray-500 text-sm mb-4">Data based on {totalBookings.toLocaleString()} completed bookings through {siteConfig.name}.</p>
+      <p class="text-gray-500 text-sm mb-4">Data based on real wedding bookings across Italy.</p>
       <a href="/enquire/" class="inline-block bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition">
         Get a Quote for Your Venue
       </a>

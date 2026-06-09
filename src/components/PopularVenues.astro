@@ -43,7 +43,7 @@ const curr = '€';
             <h3 class="font-semibold group-hover:text-primary transition">{vName}</h3>
             {vTown && <p class="text-sm text-gray-500">{vTown}</p>}
             <div class="mt-2 text-sm text-gray-600 space-y-0.5">
-              <div>{venue.booking_count} weddings supplied</div>
+              <div>{venue.unique_band_count || ''} bands perform here</div>
               {priceInfo && <div>Music: {priceInfo}</div>}
               {curfewInfo && <div>Curfew: {curfewInfo}</div>}
             </div>

@@ -63,13 +63,16 @@ function formatCurfew(t: string | null): string {
 }
 const curfewDisplay = formatCurfew(venue.curfew_time);
 
-// Strip internal pipeline references like "(e.g., messages 157, 163)" from text
+// Strip internal pipeline references and booking counts from text
 function stripInternalRefs(text: string | null): string {
   if (!text) return '';
   return text
     .replace(/\(e\.g\.,?\s*messages?\s+[\d,]+\)/gi, '')
     .replace(/\(messages?\s+[\d,]+\)/gi, '')
     .replace(/\bmessages?\s+\d[\d,]*\b/gi, '')
+    .replace(/with\s+\d+\s+bookings?\s+across/i, 'across')
+    .replace(/\d+\s+bookings?\s+across\s+/i, '')
+    .replace(/,\s*\d+\s+bookings?\b/gi, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
@@ -102,7 +105,7 @@ const schemaOrg = {
   '@context': 'https://schema.org',
   '@type': 'Place',
   name: venue.canonical_name,
-  description: venue.editorial_summary || `${name} is a wedding venue in ${townPart || 'Italy'} popular for live music events, with ${venue.booking_count} weddings supplied.`,
+  description: venue.editorial_summary || `${name} is a wedding venue in ${townPart || 'Italy'} popular for live music events.`,
   geo: venue.lat && venue.lng ? {
     '@type': 'GeoCoordinates',
     latitude: venue.lat,
@@ -132,7 +135,7 @@ const breadcrumbSchema = {
 const pageTitle = `${name} — Wedding Venue${townPart ? ' in ' + townPart : ''} | Live Music`;
 const pageDesc = venue.editorial_summary
   ? venue.editorial_summary.slice(0, 160)
-  : `${name} in ${townPart || 'Italy'}: ${venue.booking_count} weddings supplied. ${peakMonths.length ? 'Peak months: ' + peakMonths.slice(0, 3).join(', ') + '.' : ''} ${priceDisplay ? 'Typical music budget: ' + priceDisplay + '.' : ''} ${curfewDisplay ? 'Music curfew: ' + curfewDisplay + '.' : ''}`;
+  : `${name} in ${townPart || 'Italy'}. ${peakMonths.length ? 'Peak months: ' + peakMonths.slice(0, 3).join(', ') + '.' : ''} ${priceDisplay ? 'Typical music budget: ' + priceDisplay + '.' : ''} ${curfewDisplay ? 'Music curfew: ' + curfewDisplay + '.' : ''}`;
 ---
 
 <BaseLayout title={pageTitle} description={pageDesc}>
@@ -154,15 +157,14 @@ const pageDesc = venue.editorial_summary
       <h1 class="font-heading text-3xl md:text-4xl font-bold mb-2">{name}</h1>
       {townPart && <p class="text-lg text-gray-600">{addressParts.join(', ')}</p>}
       <div class="flex flex-wrap items-center gap-4 mt-4">
-        <span class="inline-flex items-center gap-1 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
-          {venue.booking_count} weddings supplied
-        </span>
         {venue.unique_band_count > 0 && (
-          <span class="text-gray-500 text-sm">{venue.unique_band_count} different bands performed here</span>
+          <span class="inline-flex items-center gap-1 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
+            {venue.unique_band_count} different bands performed here
+          </span>
         )}
         {venue.first_booking_year && venue.latest_booking_year && (
-          <span class="text-gray-400 text-sm">
-            {venue.first_booking_year}–{venue.latest_booking_year}
+          <span class="text-gray-500 text-sm">
+            Events {venue.first_booking_year}–{venue.latest_booking_year}
           </span>
         )}
       </div>
@@ -221,7 +223,7 @@ const pageDesc = venue.editorial_summary
                 <div class="flex-1">
                   <div class="flex justify-between text-sm mb-1">
                     <span class="font-medium">{catName}</span>
-                    <span class="text-gray-500">{count} {count === 1 ? 'booking' : 'bookings'}</span>
+                    <span class="text-gray-500">{pct}%</span>
                   </div>
                   <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div class="h-full bg-primary rounded-full" style={`width: ${pct}%`} />
@@ -242,11 +244,6 @@ const pageDesc = venue.editorial_summary
           {topBands.map((band: any) => (
             <BandCard band={band} />
           ))}
-        </div>
-        <div class="text-center mt-6">
-          <a href="/enquire/" class="inline-block bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition">
-            Get a Quote for {name}
-          </a>
         </div>
       </section>
     )}
@@ -298,29 +295,19 @@ const pageDesc = venue.editorial_summary
       </section>
     )}
 
-    {/* Overtime and Payment */}
-    {(venue.overtime_rate_low || venue.overtime_rate_high || (venue.payment_methods && venue.payment_methods.length > 0)) && (
+    {/* Overtime */}
+    {(venue.overtime_rate_low || venue.overtime_rate_high) && (
       <section class="mb-10">
         <h2 class="font-heading text-2xl font-bold mb-4">Additional Costs</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {(venue.overtime_rate_low || venue.overtime_rate_high) && (
-            <div>
-              <h3 class="font-semibold mb-2">Overtime Rate</h3>
-              <p class="text-gray-600">
-                {venue.overtime_rate_low && venue.overtime_rate_high
-                  ? `${currency}${venue.overtime_rate_low}–${currency}${venue.overtime_rate_high}/hour`
-                  : venue.overtime_rate_low
-                    ? `From ${currency}${venue.overtime_rate_low}/hour`
-                    : `${currency}${venue.overtime_rate_high}/hour`}
-              </p>
-            </div>
-          )}
-          {venue.payment_methods && venue.payment_methods.length > 0 && (
-            <div>
-              <h3 class="font-semibold mb-2">Payment Methods</h3>
-              <p class="text-gray-600">{venue.payment_methods.join(', ')}</p>
-            </div>
-          )}
+        <div>
+          <h3 class="font-semibold mb-2">Overtime Rate</h3>
+          <p class="text-gray-600">
+            {venue.overtime_rate_low && venue.overtime_rate_high
+              ? `${currency}${venue.overtime_rate_low}–${currency}${venue.overtime_rate_high}/hour`
+              : venue.overtime_rate_low
+                ? `From ${currency}${venue.overtime_rate_low}/hour`
+                : `${currency}${venue.overtime_rate_high}/hour`}
+          </p>
         </div>
       </section>
     )}
@@ -331,7 +318,7 @@ const pageDesc = venue.editorial_summary
         <h2 class="font-heading text-2xl font-bold mb-2">Frequently Working With</h2>
         <p class="text-gray-600 mb-3 text-sm">These wedding planners have organised events at {name}:</p>
         <ul class="list-disc list-inside text-gray-700">
-          {venue.associated_planners.map((planner: string) => <li>{planner}</li>)}
+          {venue.associated_planners.map((planner: any) => <li>{typeof planner === 'string' ? planner : planner.name || planner.company || JSON.stringify(planner)}</li>)}
         </ul>
       </section>
     )}
@@ -339,7 +326,7 @@ const pageDesc = venue.editorial_summary
     {/* CTA */}
     <section class="bg-primary/5 border border-primary/20 rounded-xl p-8 text-center mt-12">
       <h2 class="font-heading text-2xl font-bold mb-3">Planning a wedding at {name}?</h2>
-      <p class="text-gray-600 mb-5">We work with {venue.unique_band_count}+ bands who have performed at this venue. Get a tailored quote for live music matched to your event.</p>
+      <p class="text-gray-600 mb-5">Get a tailored quote for live music matched to your event, venue, and budget.</p>
       <a href="/enquire/" class="inline-block bg-primary text-white px-8 py-3 rounded-lg font-semibold hover:bg-primary/90 transition">
         Get a Quote
       </a>
