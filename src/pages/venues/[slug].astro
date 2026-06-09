@@ -85,7 +85,7 @@ const hasLoadIn = venue.load_in_notes && venue.load_in_notes.trim().length > 0;
 const hasPower = venue.power_notes && venue.power_notes.trim().length > 0;
 const hasSound = venue.sound_notes && venue.sound_notes.trim().length > 0;
 const hasRainBackup = venue.rain_backup_notes && venue.rain_backup_notes.trim().length > 0;
-const hasSetupAreas = venue.setup_areas && venue.setup_areas.filter((a: string) => a.trim()).length > 0;
+const hasSetupAreas = Array.isArray(venue.setup_areas) && venue.setup_areas.filter((a: string) => a && a.trim()).length > 0;
 const hasIndoorBackup = venue.has_indoor_backup === true;
 const hasLogistics = hasLoadIn || hasPower || hasSound || hasRainBackup || hasSetupAreas || hasIndoorBackup;
 
