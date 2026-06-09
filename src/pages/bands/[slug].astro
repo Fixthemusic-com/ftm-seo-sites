@@ -26,7 +26,7 @@ export async function getStaticPaths() {
 
   while (hasMore) {
     const result = await getBands({
-      home_region: (await import('../../lib/config')).siteConfig.regionId,
+      home_region: siteConfig.regionId,
       page,
       page_size: 100,
     });

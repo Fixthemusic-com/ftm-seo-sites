@@ -24,7 +24,9 @@ export default defineConfig({
   integrations: [
     tailwind(),
     mdx(),
-    sitemap(),
+    sitemap({
+      filter: (page) => !page.includes('/bands/'),
+    }),
   ],
   output: 'static',
   build: {
