@@ -148,12 +148,29 @@ ${original}`;
   function cleanHtml(html) {
     // Strip <a> tags, keep inner text
     html = html.replace(/<a\s[^>]*>(.*?)<\/a>/gi, '$1');
-    // Remove lines mentioning fixthemusic
-    html = html.replace(/<p>[^<]*fixthemusic[^<]*<\/p>/gi, '');
-    // Remove leftover URLs
-    html = html.replace(/https?:\/\/[^\s<"']+fixthemusic[^\s<"']*/gi, '');
+    // Remove entire "Similar Bands" / cross-promo sections (heading + list + trailing line)
+    html = html.replace(/<(h[2-4]|p|strong)[^>]*>[^<]*(similar\s+bands|also\s+appreciated|also\s+enjoyed|you\s+may\s+also\s+like)[^<]*<\/\1>\s*(<ul>[\s\S]*?<\/ul>)?\s*(<p>[^<]*(browse|collection|portfolio)[^<]*<\/p>)?/gi, '');
+    // Remove standalone "Browse our collection/portfolio" lines
+    html = html.replace(/<p>[^<]*(browse\s+(our|the)\s+(full\s+)?(collection|portfolio))[^<]*<\/p>/gi, '');
+    // Remove "Best Wedding Bands" list references
+    html = html.replace(/<p>[^<]*\d+\s+best\s+(wedding\s+)?bands[^<]*<\/p>/gi, '');
+    // Remove lines mentioning fixthemusic (case insensitive, also catches partial matches)
+    html = html.replace(/<p>[^<]*fix\s*the\s*music[^<]*<\/p>/gi, '');
+    html = html.replace(/<li>[^<]*fix\s*the\s*music[^<]*<\/li>/gi, '');
+    // Remove leftover URLs pointing to fixthemusic
+    html = html.replace(/https?:\/\/[^\s<"']*fixthemusic[^\s<"']*/gi, '');
+    // Remove "Contact [Name]" CTA lines
+    html = html.replace(/<p>[^<]*contact\s+(us|them|the\s+band)[^<]*<\/p>/gi, '');
+    // Remove "Follow us on Facebook" / social media lines
+    html = html.replace(/<p>[^<]*follow\s+(us\s+)?on\s+facebook[^<]*<\/p>/gi, '');
+    html = html.replace(/<p>[^<]*(found\s+on|follow\s+on|check\s+(us\s+)?(out\s+)?on)\s+(facebook|instagram|twitter|youtube)[^<]*<\/p>/gi, '');
+    // Remove empty list items, then empty lists
+    html = html.replace(/<li>\s*<\/li>/g, '');
+    html = html.replace(/<ul>\s*<\/ul>/g, '');
     // Remove empty paragraphs
     html = html.replace(/<p>\s*<\/p>/g, '');
+    // Collapse multiple newlines
+    html = html.replace(/\n{3,}/g, '\n\n');
     return html.trim();
   }
 
