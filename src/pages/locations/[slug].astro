@@ -16,13 +16,12 @@ const { location } = Astro.props;
 const { Content } = await location.render();
 const { data } = location;
 
-// Fetch bands that match this region's location name for the featured section
+// Fetch bands for this location's sub-region
 let bands: any[] = [];
 let totalBands = 0;
 try {
   const result = await getBands({
-    region: siteConfig.regionId,
-    search: data.regionName,
+    region: data.regionId,
     page_size: 8,
   });
   bands = result.items;

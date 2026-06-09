@@ -20,6 +20,7 @@ const locations = defineCollection({
     description: z.string(),
     region: z.string(),
     regionName: z.string(),
+    regionId: z.number(),
     heroTitle: z.string(),
     heroSubtitle: z.string(),
     featuredLocation: z.string(),
