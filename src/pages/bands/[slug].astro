@@ -73,11 +73,14 @@ const priceDisplay =
 const imageUrl = band.main_photo?.large || band.main_photo?.medium || null;
 
 // Use AI-rewritten content if cached, otherwise fall back to raw API
+// IMPORTANT: use `!= null` (not `||`) because empty string '' is a valid rewritten
+// value meaning "this section was intentionally left empty by the LLM". Using `||`
+// would fall through to the raw API content which contains fixthemusic.com links.
 const cached = profilesCache[slug!];
-const introHtml = cached?.intro_html || profile.intro_rendered || '';
-const descHtml = cached?.description_html || profile.description_rendered || '';
-const setListHtml = cached?.set_list_html || profile.set_list_rendered || '';
-const faqHtml = cached?.faq_html || profile.faq_rendered || '';
+const introHtml = cached?.intro_html != null ? cached.intro_html : (profile.intro_rendered || '');
+const descHtml = cached?.description_html != null ? cached.description_html : (profile.description_rendered || '');
+const setListHtml = cached?.set_list_html != null ? cached.set_list_html : (profile.set_list_rendered || '');
+const faqHtml = cached?.faq_html != null ? cached.faq_html : (profile.faq_rendered || '');
 
 // Schema.org MusicGroup
 const schemaOrg = {
