@@ -1,0 +1,167 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import BandCard from '../components/BandCard.astro';
+import { siteConfig } from '../lib/config';
+import type { Band } from '../lib/types';
+
+interface Props {
+  title: string;
+  description: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  regionName: string;
+  region: string;
+  bands: Band[];
+  totalBands: number;
+}
+
+const {
+  title,
+  description,
+  heroTitle,
+  heroSubtitle,
+  regionName,
+  region,
+  bands,
+  totalBands,
+} = Astro.props;
+
+// Schema.org structured data
+const schemaOrg = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: title,
+    description: description,
+    url: Astro.url.href,
+    isPartOf: {
+      '@type': 'WebSite',
+      name: siteConfig.name,
+      url: siteConfig.domain,
+    },
+    about: {
+      '@type': 'Place',
+      name: regionName,
+      address: {
+        '@type': 'PostalAddress',
+        addressCountry: 'IT',
+        addressRegion: regionName,
+      },
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `Wedding Bands in ${regionName}`,
+    numberOfItems: totalBands,
+    itemListElement: bands.slice(0, 12).map((band, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      item: {
+        '@type': 'MusicGroup',
+        name: band.name,
+        url: `https://${siteConfig.domain}/bands/${band.slug}/`,
+        ...(band.location ? { location: { '@type': 'Place', name: band.location } } : {}),
+      },
+    })),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `https://${siteConfig.domain}/` },
+      { '@type': 'ListItem', position: 2, name: 'Locations', item: `https://${siteConfig.domain}/locations/` },
+      { '@type': 'ListItem', position: 3, name: regionName, item: Astro.url.href },
+    ],
+  },
+];
+---
+
+<BaseLayout title={title} description={description}>
+  <!-- Schema.org -->
+  {schemaOrg.map((schema) => (
+    <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+  ))}
+
+  <!-- Hero -->
+  <section class="bg-primary text-white py-16 md:py-24">
+    <div class="max-w-4xl mx-auto px-4 text-center">
+      <nav class="text-sm opacity-70 mb-4">
+        <a href="/" class="hover:opacity-100">Home</a>
+        <span class="mx-2">›</span>
+        <a href="/locations/" class="hover:opacity-100">Locations</a>
+        <span class="mx-2">›</span>
+        <span>{regionName}</span>
+      </nav>
+      <h1 class="font-heading text-3xl md:text-5xl font-bold mb-4">
+        {heroTitle}
+      </h1>
+      <p class="text-lg md:text-xl opacity-90 mb-6 max-w-2xl mx-auto">
+        {heroSubtitle}
+      </p>
+      <p class="text-sm opacity-70">
+        {totalBands} verified acts available in {regionName}
+      </p>
+    </div>
+  </section>
+
+  <!-- Article content -->
+  <article class="max-w-4xl mx-auto px-4 sm:px-6 py-12">
+    <div class="prose prose-lg max-w-none">
+      <slot />
+    </div>
+  </article>
+
+  <!-- Featured Bands from this region -->
+  {bands.length > 0 && (
+    <section class="bg-white py-16">
+      <div class="max-w-7xl mx-auto px-4">
+        <h2 class="font-heading text-3xl font-bold text-center mb-4">
+          Featured Bands in {regionName}
+        </h2>
+        <p class="text-center text-gray-600 mb-10 max-w-2xl mx-auto">
+          Browse our hand-picked selection of live wedding bands available for events in {regionName}.
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {bands.slice(0, 8).map((band) => (
+            <BandCard band={band} />
+          ))}
+        </div>
+        <div class="text-center mt-8">
+          <a
+            href={`/browse/?search=${encodeURIComponent(regionName)}`}
+            class="inline-block bg-primary text-white px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity"
+          >
+            View All Bands in {regionName}
+          </a>
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- CTA -->
+  <section class="bg-accent text-white py-16">
+    <div class="max-w-3xl mx-auto px-4 text-center">
+      <h2 class="font-heading text-3xl font-bold mb-4">
+        Planning a Wedding in {regionName}?
+      </h2>
+      <p class="text-lg opacity-90 mb-8">
+        Tell us about your wedding and we'll recommend the perfect live music for your {regionName} celebration.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a
+          href="/enquire/"
+          class="bg-white text-primary px-8 py-3 rounded-lg text-lg font-semibold hover:opacity-90 transition-opacity"
+        >
+          Get a Free Quote
+        </a>
+        <a
+          href="/browse/"
+          class="border border-white/40 text-white px-8 py-3 rounded-lg text-lg hover:bg-white/10 transition-colors"
+        >
+          Browse All Bands
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

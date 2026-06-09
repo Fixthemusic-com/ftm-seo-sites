@@ -3,10 +3,16 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import BandCard from '../components/BandCard.astro';
 import { siteConfig } from '../lib/config';
 import { getRegion, getRecentlyBooked } from '../lib/api';
+import { getCollection } from 'astro:content';
 
 // Fetch data at build time
 const region = await getRegion(siteConfig.regionSlug);
 const recentlyBooked = await getRecentlyBooked();
+const locations = (await getCollection('locations'))
+  .sort((a, b) => a.data.regionName.localeCompare(b.data.regionName));
+const blogPosts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf())
+  .slice(0, 3);
 
 // Schema.org structured data
 const schemaOrg = {
@@ -88,6 +94,64 @@ const schemaOrg = {
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {recentlyBooked.slice(0, 4).map((band) => (
             <BandCard band={band} />
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- Popular Locations -->
+  <section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4">
+      <h2 class="font-heading text-3xl font-bold text-center mb-4">
+        Popular Wedding Locations
+      </h2>
+      <p class="text-center text-gray-600 mb-10 max-w-2xl mx-auto">
+        Explore guides to Italy's most popular wedding regions — venues, logistics, traditions, and local bands.
+      </p>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {locations.slice(0, 8).map((loc) => (
+          <a
+            href={`/locations/${loc.slug}/`}
+            class="bg-surface rounded-lg p-5 text-center hover:shadow-lg transition-shadow group"
+          >
+            <div class="text-2xl mb-2">📍</div>
+            <h3 class="font-heading font-semibold text-lg group-hover:text-primary transition-colors">
+              {loc.data.regionName}
+            </h3>
+          </a>
+        ))}
+      </div>
+      <div class="text-center mt-8">
+        <a href="/locations/" class="text-primary font-semibold hover:underline">
+          View all locations →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Guides & Resources -->
+  {blogPosts.length > 0 && (
+    <section class="py-16">
+      <div class="max-w-7xl mx-auto px-4">
+        <h2 class="font-heading text-3xl font-bold text-center mb-4">
+          Guides & Resources
+        </h2>
+        <p class="text-center text-gray-600 mb-10 max-w-2xl mx-auto">
+          Expert advice on booking live music for your Italian wedding.
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {blogPosts.map((post) => (
+            <a
+              href={`/blog/${post.slug}/`}
+              class="block bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden"
+            >
+              <div class="p-6">
+                <h3 class="text-lg font-heading font-bold mb-2">{post.data.title}</h3>
+                <p class="text-gray-600 text-sm line-clamp-3">{post.data.description}</p>
+                <span class="inline-block mt-4 text-primary font-semibold text-sm">Read guide →</span>
+              </div>
+            </a>
           ))}
         </div>
       </div>

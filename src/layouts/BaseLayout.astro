@@ -81,7 +81,8 @@ const { theme } = siteConfig;
         </a>
         <div class="hidden md:flex items-center gap-6">
           <a href="/browse/" class="hover:text-accent transition-colors">Browse</a>
-          <a href="/blog/" class="hover:text-accent transition-colors">Blog</a>
+          <a href="/locations/" class="hover:text-accent transition-colors">Locations</a>
+          <a href="/blog/" class="hover:text-accent transition-colors">Guides</a>
           <a
             href="/enquire/"
             class="bg-accent text-white px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
@@ -103,7 +104,8 @@ const { theme } = siteConfig;
       <!-- Mobile menu -->
       <div id="mobile-menu" class="hidden md:hidden px-4 pb-4">
         <a href="/browse/" class="block py-2 hover:text-accent">Browse</a>
-        <a href="/blog/" class="block py-2 hover:text-accent">Blog</a>
+        <a href="/locations/" class="block py-2 hover:text-accent">Locations</a>
+        <a href="/blog/" class="block py-2 hover:text-accent">Guides</a>
         <a href="/enquire/" class="block py-2 hover:text-accent">Enquire Now</a>
       </div>
     </header>
@@ -116,7 +118,7 @@ const { theme } = siteConfig;
     <!-- Footer -->
     <footer class="bg-primary-dark text-white py-12">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
             <h3 class="font-heading text-lg font-bold mb-3">{siteConfig.name}</h3>
             <p class="text-sm opacity-80">{siteConfig.footer.about}</p>
@@ -125,7 +127,20 @@ const { theme } = siteConfig;
             <h3 class="font-heading text-lg font-bold mb-3">Quick Links</h3>
             <ul class="space-y-2 text-sm opacity-80">
               <li><a href="/browse/" class="hover:opacity-100">Browse Bands</a></li>
+              <li><a href="/locations/" class="hover:opacity-100">Locations</a></li>
+              <li><a href="/blog/" class="hover:opacity-100">Guides & Blog</a></li>
               <li><a href="/enquire/" class="hover:opacity-100">Make an Enquiry</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="font-heading text-lg font-bold mb-3">Popular Regions</h3>
+            <ul class="space-y-2 text-sm opacity-80">
+              <li><a href="/locations/tuscany/" class="hover:opacity-100">Tuscany</a></li>
+              <li><a href="/locations/amalfi-coast/" class="hover:opacity-100">Amalfi Coast</a></li>
+              <li><a href="/locations/lake-como/" class="hover:opacity-100">Lake Como</a></li>
+              <li><a href="/locations/rome/" class="hover:opacity-100">Rome</a></li>
+              <li><a href="/locations/puglia/" class="hover:opacity-100">Puglia</a></li>
+              <li><a href="/locations/sicily/" class="hover:opacity-100">Sicily</a></li>
             </ul>
           </div>
           <div>

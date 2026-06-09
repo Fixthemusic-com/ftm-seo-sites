@@ -1,0 +1,47 @@
+---
+import { getCollection } from 'astro:content';
+import LocationLayout from '../../layouts/LocationLayout.astro';
+import { getBands } from '../../lib/api';
+import { siteConfig } from '../../lib/config';
+
+export async function getStaticPaths() {
+  const locations = await getCollection('locations');
+  return locations.map((location) => ({
+    params: { slug: location.slug },
+    props: { location },
+  }));
+}
+
+const { location } = Astro.props;
+const { Content } = await location.render();
+const { data } = location;
+
+// Fetch bands that match this region's location name for the featured section
+let bands: any[] = [];
+let totalBands = 0;
+try {
+  const result = await getBands({
+    region: siteConfig.regionId,
+    search: data.regionName,
+    page_size: 8,
+  });
+  bands = result.items;
+  totalBands = result.count;
+} catch (e) {
+  // Graceful fallback — page still renders without featured bands
+  console.warn(`Could not fetch bands for ${data.regionName}:`, e);
+}
+---
+
+<LocationLayout
+  title={data.title}
+  description={data.description}
+  heroTitle={data.heroTitle}
+  heroSubtitle={data.heroSubtitle}
+  regionName={data.regionName}
+  region={data.region}
+  bands={bands}
+  totalBands={totalBands}
+>
+  <Content />
+</LocationLayout>

@@ -1,0 +1,128 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { siteConfig } from '../../lib/config';
+
+const locations = (await getCollection('locations'))
+  .sort((a, b) => a.data.regionName.localeCompare(b.data.regionName));
+
+// Schema.org
+const schemaOrg = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: 'Wedding Band Locations in Italy',
+    description: 'Explore wedding bands by region across Italy — from Tuscany and the Amalfi Coast to Lake Como and Sicily.',
+    url: Astro.url.href,
+    isPartOf: {
+      '@type': 'WebSite',
+      name: siteConfig.name,
+      url: siteConfig.domain,
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Italian Wedding Regions',
+    numberOfItems: locations.length,
+    itemListElement: locations.map((loc, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      item: {
+        '@type': 'Place',
+        name: loc.data.regionName,
+        url: `https://${siteConfig.domain}/locations/${loc.slug}/`,
+      },
+    })),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `https://${siteConfig.domain}/` },
+      { '@type': 'ListItem', position: 2, name: 'Locations', item: Astro.url.href },
+    ],
+  },
+];
+---
+
+<BaseLayout
+  title="Wedding Band Locations in Italy"
+  description="Explore wedding bands by region across Italy — from Tuscany and the Amalfi Coast to Lake Como and Sicily."
+>
+  {schemaOrg.map((schema) => (
+    <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+  ))}
+
+  <!-- Hero -->
+  <section class="bg-primary text-white py-16 md:py-24">
+    <div class="max-w-4xl mx-auto px-4 text-center">
+      <nav class="text-sm opacity-70 mb-4">
+        <a href="/" class="hover:opacity-100">Home</a>
+        <span class="mx-2">›</span>
+        <span>Locations</span>
+      </nav>
+      <h1 class="font-heading text-3xl md:text-5xl font-bold mb-4">
+        Wedding Bands Across Italy
+      </h1>
+      <p class="text-lg md:text-xl opacity-90 max-w-2xl mx-auto">
+        Find live wedding entertainment in Italy's most popular wedding destinations.
+        Each guide covers venues, logistics, local traditions, and pricing.
+      </p>
+    </div>
+  </section>
+
+  <!-- Location Grid -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {locations.map((location) => (
+        <a
+          href={`/locations/${location.slug}/`}
+          class="group block bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden border border-gray-100"
+        >
+          <div class="bg-primary/5 p-6 group-hover:bg-primary/10 transition-colors">
+            <div class="text-3xl mb-2">📍</div>
+            <h2 class="text-xl font-heading font-bold text-gray-900 group-hover:text-primary transition-colors">
+              {location.data.regionName}
+            </h2>
+            <p class="text-sm text-gray-500 mt-1">{location.data.featuredLocation}</p>
+          </div>
+          <div class="p-6">
+            <p class="text-gray-600 text-sm line-clamp-3">
+              {location.data.description}
+            </p>
+            <div class="flex flex-wrap gap-2 mt-4">
+              {location.data.tags.filter((t: string) => t !== 'wedding-bands' && t !== 'location').map((tag: string) => (
+                <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full capitalize">
+                  {tag}
+                </span>
+              ))}
+            </div>
+            <span class="inline-block mt-4 text-primary font-semibold text-sm group-hover:underline">
+              Read guide →
+            </span>
+          </div>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="bg-accent text-white py-16">
+    <div class="max-w-3xl mx-auto px-4 text-center">
+      <h2 class="font-heading text-3xl font-bold mb-4">
+        Not Sure Where to Start?
+      </h2>
+      <p class="text-lg opacity-90 mb-8">
+        Tell us about your Italian wedding and we'll recommend the perfect live entertainment,
+        wherever your venue is.
+      </p>
+      <a
+        href="/enquire/"
+        class="bg-white text-primary px-8 py-3 rounded-lg text-lg font-semibold hover:opacity-90 transition-opacity inline-block"
+      >
+        Get a Free Quote
+      </a>
+    </div>
+  </section>
+</BaseLayout>
