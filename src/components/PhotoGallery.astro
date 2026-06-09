@@ -1,0 +1,186 @@
+---
+import type { BandPhoto } from '../lib/types';
+
+interface Props {
+  photos: BandPhoto[];
+  bandName: string;
+  initialShow?: number;
+}
+
+const { photos, bandName, initialShow = 8 } = Astro.props;
+const sorted = [...photos].sort((a, b) => a.order - b.order);
+const visibleCount = sorted.length;
+const hasMore = visibleCount > initialShow;
+---
+
+{visibleCount > 0 && (
+  <section class="mb-10" aria-label={`Photos of ${bandName}`}>
+    <h2 class="font-heading text-2xl font-bold mb-6">
+      Photos
+      <span class="text-gray-400 font-normal ml-2 text-lg">{visibleCount}</span>
+    </h2>
+
+    <div class="photo-gallery" data-initial={initialShow}>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {sorted.map((photo, idx) => (
+          <button
+            type="button"
+            class={`photo-grid-item relative rounded-lg overflow-hidden aspect-[4/3] bg-gray-100 group ${idx >= initialShow ? 'hidden extra-photo' : ''}`}
+            data-index={idx}
+            aria-label={`View ${bandName} photo ${idx + 1} of ${visibleCount}`}
+          >
+            <img
+              src={photo.small}
+              alt={`${bandName} - performance photo ${idx + 1}`}
+              class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              loading={idx < 4 ? 'eager' : 'lazy'}
+              width="720"
+              height="540"
+            />
+            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
+          </button>
+        ))}
+      </div>
+
+      {hasMore && (
+        <div class="text-center mt-6">
+          <button
+            type="button"
+            class="show-photos-btn text-primary font-semibold hover:underline px-4 py-2"
+          >
+            Show all {visibleCount} photos
+          </button>
+        </div>
+      )}
+    </div>
+
+    {/* Lightbox */}
+    <div class="lightbox fixed inset-0 z-50 bg-black/95 hidden items-center justify-center" role="dialog" aria-modal="true" aria-label="Photo gallery">
+      <button type="button" class="lightbox-close absolute top-4 right-4 text-white/70 hover:text-white z-10 p-2" aria-label="Close gallery">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <button type="button" class="lightbox-prev absolute left-2 md:left-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-2 z-10" aria-label="Previous photo">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      <div class="lightbox-img-container flex items-center justify-center max-w-[90vw] max-h-[85vh]">
+        <img class="lightbox-img max-w-full max-h-[85vh] object-contain" src="" alt="" />
+      </div>
+
+      <button type="button" class="lightbox-next absolute right-2 md:right-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-2 z-10" aria-label="Next photo">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+
+      <div class="lightbox-counter absolute bottom-6 left-1/2 -translate-x-1/2 text-white/70 text-sm" />
+    </div>
+  </section>
+)}
+
+<script>
+  // Photo gallery lightbox
+  function initGallery() {
+    const galleries = document.querySelectorAll('.photo-gallery');
+    if (!galleries.length) return;
+
+    galleries.forEach(gallery => {
+      const items = gallery.querySelectorAll('.photo-grid-item');
+      const lightbox = gallery.parentElement?.querySelector('.lightbox') as HTMLElement;
+      if (!lightbox) return;
+
+      const img = lightbox.querySelector('.lightbox-img') as HTMLImageElement;
+      const counter = lightbox.querySelector('.lightbox-counter') as HTMLElement;
+      const closeBtn = lightbox.querySelector('.lightbox-close') as HTMLElement;
+      const prevBtn = lightbox.querySelector('.lightbox-prev') as HTMLElement;
+      const nextBtn = lightbox.querySelector('.lightbox-next') as HTMLElement;
+      const showBtn = gallery.querySelector('.show-photos-btn') as HTMLElement;
+      const extraPhotos = gallery.querySelectorAll('.extra-photo');
+
+      // Photo data: extract large URLs from the grid
+      const photos: { small: string; large: string; alt: string }[] = [];
+      items.forEach(item => {
+        const imgEl = item.querySelector('img') as HTMLImageElement;
+        const smallSrc = imgEl?.src || '';
+        // Convert small URL to large by replacing size segment
+        const largeSrc = smallSrc.replace(/\/\d+x\d+\//, '/1920x1440/').replace(/\/\d+x\d+(?=\.\w+$)/, '/1920x1440');
+        photos.push({ small: smallSrc, large: largeSrc, alt: imgEl?.alt || '' });
+      });
+
+      let currentIndex = 0;
+
+      function showPhoto(idx: number) {
+        currentIndex = idx;
+        img.src = photos[idx].large;
+        img.alt = photos[idx].alt;
+        counter.textContent = `${idx + 1} / ${photos.length}`;
+        // Preload adjacent
+        if (photos[idx + 1]) { const pre = new Image(); pre.src = photos[idx + 1].large; }
+        if (photos[idx - 1]) { const pre = new Image(); pre.src = photos[idx - 1].large; }
+      }
+
+      function openLightbox(idx: number) {
+        showPhoto(idx);
+        lightbox.classList.remove('hidden');
+        lightbox.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeLightbox() {
+        lightbox.classList.add('hidden');
+        lightbox.classList.remove('flex');
+        document.body.style.overflow = '';
+      }
+
+      items.forEach((item, idx) => {
+        item.addEventListener('click', () => openLightbox(idx));
+      });
+
+      closeBtn?.addEventListener('click', closeLightbox);
+      prevBtn?.addEventListener('click', () => showPhoto((currentIndex - 1 + photos.length) % photos.length));
+      nextBtn?.addEventListener('click', () => showPhoto((currentIndex + 1) % photos.length));
+
+      // Click backdrop to close
+      lightbox.addEventListener('click', (e) => {
+        if (e.target === lightbox) closeLightbox();
+      });
+
+      // Keyboard nav
+      document.addEventListener('keydown', (e) => {
+        if (!lightbox.classList.contains('hidden')) {
+          if (e.key === 'Escape') closeLightbox();
+          if (e.key === 'ArrowLeft') showPhoto((currentIndex - 1 + photos.length) % photos.length);
+          if (e.key === 'ArrowRight') showPhoto((currentIndex + 1) % photos.length);
+        }
+      });
+
+      // Touch swipe
+      let touchStartX = 0;
+      lightbox.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; });
+      lightbox.addEventListener('touchend', (e) => {
+        const diff = e.changedTouches[0].screenX - touchStartX;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) showPhoto((currentIndex - 1 + photos.length) % photos.length);
+          else showPhoto((currentIndex + 1) % photos.length);
+        }
+      });
+
+      // Show all photos button
+      showBtn?.addEventListener('click', () => {
+        extraPhotos.forEach(el => el.classList.remove('hidden'));
+        showBtn.parentElement?.classList.add('hidden');
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGallery);
+  } else {
+    initGallery();
+  }
+</script>

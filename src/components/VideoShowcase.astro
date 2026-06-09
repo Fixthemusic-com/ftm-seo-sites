@@ -1,0 +1,180 @@
+---
+import type { BandVideo } from '../lib/types';
+
+interface Props {
+  videos: BandVideo[];
+  bandName: string;
+  initialShow?: number;
+}
+
+const { videos, bandName, initialShow = 5 } = Astro.props;
+const visibleCount = videos.length;
+const hasMore = visibleCount > initialShow;
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function getEmbedUrl(video: BandVideo): string {
+  if (video.source === 'youtube') {
+    return `https://www.youtube-nocookie.com/embed/${video.external_id}`;
+  }
+  return `https://player.vimeo.com/video/${video.external_id}`;
+}
+
+const featured = videos[0];
+const rest = videos.slice(1, initialShow);
+const hidden = videos.slice(initialShow);
+---
+
+{visibleCount > 0 && (
+  <section class="mb-10" aria-label={`Videos of ${bandName}`}>
+    <h2 class="font-heading text-2xl font-bold mb-6">
+      Videos
+      <span class="text-gray-400 font-normal ml-2 text-lg">{visibleCount}</span>
+    </h2>
+
+    <div class="video-showcase">
+      {/* Featured video */}
+      {featured && (
+        <div class="mb-6">
+          <div class="video-wrapper relative aspect-video rounded-xl overflow-hidden bg-gray-900 cursor-pointer group" data-embed-url={getEmbedUrl(featured)}>
+            <img
+              src={featured.thumbnail_url}
+              alt={`${featured.title || bandName} - video`}
+              class="w-full h-full object-cover"
+              loading="lazy"
+            />
+            <div class="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+              <div class="w-16 h-16 md:w-20 md:h-20 bg-white/90 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                <svg class="w-8 h-8 md:w-10 md:h-10 text-primary ml-1" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          {featured.title && (
+            <div class="mt-2 flex items-center gap-3">
+              <p class="font-medium text-gray-800">{featured.title}</p>
+              {featured.duration > 0 && (
+                <span class="text-sm text-gray-500">{formatDuration(featured.duration)}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Video thumbnails grid */}
+      {rest.length > 0 && (
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {rest.map((video) => (
+            <div class="video-thumb-item">
+              <div class="video-wrapper relative aspect-video rounded-lg overflow-hidden bg-gray-100 cursor-pointer group" data-embed-url={getEmbedUrl(video)}>
+                <img
+                  src={video.thumbnail_url}
+                  alt={`${video.title || bandName} - video`}
+                  class="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                <div class="absolute inset-0 bg-black/20 group-hover:bg-black/35 transition-colors flex items-center justify-center">
+                  <div class="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow group-hover:scale-110 transition-transform">
+                    <svg class="w-5 h-5 text-primary ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
+                {video.duration > 0 && (
+                  <span class="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                    {formatDuration(video.duration)}
+                  </span>
+                )}
+              </div>
+              {video.title && (
+                <p class="text-sm text-gray-600 mt-1 truncate">{video.title}</p>
+              )}
+            </div>
+          ))}
+
+          {/* Hidden extras */}
+          {hidden.map((video) => (
+            <div class="video-thumb-item hidden extra-video">
+              <div class="video-wrapper relative aspect-video rounded-lg overflow-hidden bg-gray-100 cursor-pointer group" data-embed-url={getEmbedUrl(video)}>
+                <img
+                  src={video.thumbnail_url}
+                  alt={`${video.title || bandName} - video`}
+                  class="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                <div class="absolute inset-0 bg-black/20 group-hover:bg-black/35 transition-colors flex items-center justify-center">
+                  <div class="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow group-hover:scale-110 transition-transform">
+                    <svg class="w-5 h-5 text-primary ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
+                {video.duration > 0 && (
+                  <span class="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                    {formatDuration(video.duration)}
+                  </span>
+                )}
+              </div>
+              {video.title && (
+                <p class="text-sm text-gray-600 mt-1 truncate">{video.title}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {hasMore && (
+        <div class="text-center mt-6">
+          <button
+            type="button"
+            class="show-videos-btn text-primary font-semibold hover:underline px-4 py-2"
+          >
+            Show all {visibleCount} videos
+          </button>
+        </div>
+      )}
+    </div>
+  </section>
+)}
+
+<script>
+  function initVideos() {
+    document.querySelectorAll('.video-showcase').forEach(showcase => {
+      // Click thumbnail → swap to iframe embed
+      showcase.querySelectorAll('.video-wrapper').forEach(wrapper => {
+        wrapper.addEventListener('click', () => {
+          const embedUrl = wrapper.getAttribute('data-embed-url');
+          if (!embedUrl) return;
+          const iframe = document.createElement('iframe');
+          iframe.src = embedUrl + '?autoplay=1';
+          iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+          iframe.allowFullscreen = true;
+          iframe.className = 'w-full h-full absolute inset-0';
+          iframe.setAttribute('frameborder', '0');
+          // Clear inner content and insert iframe
+          wrapper.innerHTML = '';
+          wrapper.appendChild(iframe);
+        });
+      });
+
+      // Show all button
+      const showBtn = showcase.querySelector('.show-videos-btn') as HTMLElement;
+      const extras = showcase.querySelectorAll('.extra-video');
+      showBtn?.addEventListener('click', () => {
+        extras.forEach(el => el.classList.remove('hidden'));
+        showBtn.parentElement?.classList.add('hidden');
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initVideos);
+  } else {
+    initVideos();
+  }
+</script>

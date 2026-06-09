@@ -5,6 +5,8 @@
 import type {
   Band,
   BandDetail,
+  BandPhoto,
+  BandVideo,
   BandCategory,
   Region,
   PaginatedResponse,
@@ -85,12 +87,12 @@ export async function getBand(slug: string): Promise<BandDetail> {
   return apiFetch<BandDetail>(`/api-v2/bands/${slug}`);
 }
 
-export async function getBandPhotos(slug: string): Promise<BandDetail['photos']> {
-  return apiFetch<BandDetail['photos']>(`/api-v2/bands/${slug}/photos`);
+export async function getBandPhotos(slug: string): Promise<BandPhoto[]> {
+  return apiFetch<BandPhoto[]>(`/api-v2/bands/${slug}/photos`);
 }
 
-export async function getBandVideos(slug: string): Promise<BandDetail['videos']> {
-  return apiFetch<BandDetail['videos']>(`/api-v2/bands/${slug}/videos`);
+export async function getBandVideos(slug: string): Promise<BandVideo[]> {
+  return apiFetch<BandVideo[]>(`/api-v2/bands/${slug}/videos`);
 }
 
 export interface BandReview {

@@ -63,17 +63,29 @@ function formatCurfew(t: string | null): string {
 }
 const curfewDisplay = formatCurfew(venue.curfew_time);
 
-// Strip internal pipeline references and booking counts from text
+// Strip internal pipeline references and unsuitable phrases from venue text
 function stripInternalRefs(text: string | null): string {
   if (!text) return '';
   return text
-    .replace(/\(e\.g\.,?\s*messages?\s+[\d,]+\)/gi, '')
-    .replace(/\(messages?\s+[\d,]+\)/gi, '')
+    // Pipeline message references
+    .replace(/\(e\.g\.,?\s*(?:messages?\s+)?[\d, ]+\)/gi, '')
+    .replace(/\((?:messages?\s+)?[\d, ]+\)/gi, '')
     .replace(/\bmessages?\s+\d[\d,]*\b/gi, '')
-    .replace(/with\s+\d+\s+bookings?\s+across/i, 'across')
-    .replace(/\d+\s+bookings?\s+across\s+/i, '')
+    // Booking count patterns embedded in prose
+    .replace(/,\s*with\s+\d+\s+bookings?\s+across\s+\d+\s+unique\s+bands?\s+between\s+\d+\s+and\s+\d+/gi, '')
+    .replace(/with\s+\d+\s+bookings?\s+across\s+\d+\s+unique\s+bands?\s+between\s+\d+\s+and\s+\d+/gi, '')
+    .replace(/across\s+\d+\s+unique\s+bands?\s+between\s+\d+\s+and\s+\d+/gi, '')
     .replace(/,\s*\d+\s+bookings?\b/gi, '')
+    // Platform references
+    .replace(/\bthrough\s+FixTheMusic\b/gi, '')
+    .replace(/\bbooked\s+through\s+\w+\b/gi, '')
+    // Analytical report phrasing
+    .replace(/\bthe correspondence reveals\b/gi, '')
+    .replace(/\bthe data shows\b/gi, '')
+    // Cleanup
     .replace(/\s{2,}/g, ' ')
+    .replace(/,\s*\./g, '.')
+    .replace(/^,\s*/g, '')
     .trim();
 }
 

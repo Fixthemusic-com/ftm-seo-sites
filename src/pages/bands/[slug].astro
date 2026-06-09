@@ -1,8 +1,10 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import BandCard from '../../components/BandCard.astro';
+import PhotoGallery from '../../components/PhotoGallery.astro';
+import VideoShowcase from '../../components/VideoShowcase.astro';
 import { siteConfig } from '../../lib/config';
-import { getBands, getBand, getRelatedBands, getBandProfile, getBandReviews } from '../../lib/api';
+import { getBands, getBand, getRelatedBands, getBandProfile, getBandReviews, getBandPhotos, getBandVideos } from '../../lib/api';
 import type { BandProfile, BandReview } from '../../lib/api';
 
 // Load AI-rewritten profile cache (falls back gracefully if not present)
@@ -47,8 +49,8 @@ const { regionSlugs } = Astro.props;
 const regionSlugSet = new Set(regionSlugs);
 const band = await getBand(slug!);
 
-// Fetch profile, reviews, and related bands in parallel with graceful fallback
-const [profile, reviews, rawRelatedBands] = await Promise.all([
+// Fetch profile, reviews, related bands, photos, and videos in parallel with graceful fallback
+const [profile, reviews, rawRelatedBands, photos, videos] = await Promise.all([
   getBandProfile(slug!).catch(() => ({
     intro_rendered: '',
     description_rendered: '',
@@ -58,6 +60,8 @@ const [profile, reviews, rawRelatedBands] = await Promise.all([
   }) as BandProfile),
   getBandReviews(slug!).catch(() => ({ items: [] as BandReview[], count: 0 })),
   getRelatedBands(slug!).catch(() => [] as any[]),
+  getBandPhotos(slug!).catch(() => [] as any[]),
+  getBandVideos(slug!).catch(() => [] as any[]),
 ]);
 
 // Filter related bands to only those in the region (with pages on this site)
@@ -177,6 +181,12 @@ const schemaOrg = {
         <Fragment set:html={descHtml} />
       </div>
     )}
+
+    <!-- Photo Gallery -->
+    <PhotoGallery photos={photos} bandName={band.name} />
+
+    <!-- Video Showcase -->
+    <VideoShowcase videos={videos} bandName={band.name} />
 
     {setListHtml && (
       <div class="prose prose-lg max-w-none mb-8">
