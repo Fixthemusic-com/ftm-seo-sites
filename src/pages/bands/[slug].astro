@@ -19,9 +19,6 @@ try {
 }
 
 // Generate static paths for all bands in the region at build time
-// Also export the slug set so we can filter related bands
-let regionBandSlugs: Set<string> = new Set();
-
 export async function getStaticPaths() {
   const allBands = [];
   let page = 1;
@@ -38,13 +35,16 @@ export async function getStaticPaths() {
     page++;
   }
 
-  regionBandSlugs = new Set(allBands.map((b) => b.slug));
+  const slugSet = new Set(allBands.map((b) => b.slug));
   return allBands.map((band) => ({
     params: { slug: band.slug },
+    props: { regionSlugs: [...slugSet] },
   }));
 }
 
 const { slug } = Astro.params;
+const { regionSlugs } = Astro.props;
+const regionSlugSet = new Set(regionSlugs);
 const band = await getBand(slug!);
 
 // Fetch profile, reviews, and related bands in parallel with graceful fallback
@@ -61,7 +61,7 @@ const [profile, reviews, rawRelatedBands] = await Promise.all([
 ]);
 
 // Filter related bands to only those in the region (with pages on this site)
-const relatedBands = rawRelatedBands.filter((b: any) => regionBandSlugs.has(b.slug));
+const relatedBands = rawRelatedBands.filter((b: any) => regionSlugSet.has(b.slug));
 
 const priceDisplay =
   !band.hide_price && band.price_low && band.price_high
