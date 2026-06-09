@@ -183,6 +183,11 @@ export interface VenueDetail extends VenueListItem {
   rain_backup_notes: string | null;
   notable_quotes: string[];
   editorial_summary: string | null;
+  venue_description: string | null;
+  google_photos: string[];
+  website_url: string | null;
+  phone_number: string | null;
+  formatted_address: string | null;
   message_count_analyzed: number;
 }
 
