@@ -50,10 +50,44 @@ const priceDisplay = venue.price_range_low && venue.price_range_high
     ? `From ${currency}${venue.price_range_low.toLocaleString()}`
     : null;
 
-// Format curfew
-const curfewDisplay = venue.curfew_time
-  ? venue.curfew_time.replace(':00', '').replace(/^0/, '')
-  : null;
+// Format curfew (API returns "02:00:00" time format)
+function formatCurfew(t: string | null): string {
+  if (!t) return '';
+  const parts = t.split(':');
+  let h = parseInt(parts[0], 10);
+  const m = parts[1] || '00';
+  if (h === 0) return m !== '00' ? '12:' + m + 'am' : 'Midnight';
+  if (h < 12) return h + (m !== '00' ? ':' + m : '') + 'am';
+  if (h === 12) return '12' + (m !== '00' ? ':' + m : '') + 'pm';
+  return (h - 12) + (m !== '00' ? ':' + m : '') + 'pm';
+}
+const curfewDisplay = formatCurfew(venue.curfew_time);
+
+// Strip internal pipeline references like "(e.g., messages 157, 163)" from text
+function stripInternalRefs(text: string | null): string {
+  if (!text) return '';
+  return text
+    .replace(/\(e\.g\.,?\s*messages?\s+[\d,]+\)/gi, '')
+    .replace(/\(messages?\s+[\d,]+\)/gi, '')
+    .replace(/\bmessages?\s+\d[\d,]*\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+// Clean curfew notes
+const curfewNotes = venue.curfew_notes ? stripInternalRefs(venue.curfew_notes) : null;
+
+// Clean editorial summary
+const editorialClean = venue.editorial_summary ? stripInternalRefs(venue.editorial_summary) : null;
+
+// Check if logistics has actual content
+const hasLoadIn = venue.load_in_notes && venue.load_in_notes.trim().length > 0;
+const hasPower = venue.power_notes && venue.power_notes.trim().length > 0;
+const hasSound = venue.sound_notes && venue.sound_notes.trim().length > 0;
+const hasRainBackup = venue.rain_backup_notes && venue.rain_backup_notes.trim().length > 0;
+const hasSetupAreas = venue.setup_areas && venue.setup_areas.filter((a: string) => a.trim()).length > 0;
+const hasIndoorBackup = venue.has_indoor_backup === true;
+const hasLogistics = hasLoadIn || hasPower || hasSound || hasRainBackup || hasSetupAreas || hasIndoorBackup;
 
 // Top music categories
 const categories = venue.top_categories
@@ -135,9 +169,9 @@ const pageDesc = venue.editorial_summary
     </header>
 
     <!-- Editorial Summary -->
-    {venue.editorial_summary && (
+    {editorialClean && (
       <section class="prose prose-lg max-w-none mb-10">
-        <div set:html={venue.editorial_summary.replace(/\n/g, '<br>')} />
+        <div set:html={editorialClean.replace(/\n/g, '<br>')} />
       </section>
     )}
 
@@ -163,7 +197,7 @@ const pageDesc = venue.editorial_summary
         <div class="bg-gray-50 rounded-lg p-4 text-center">
           <div class="text-xs uppercase tracking-wide text-gray-500 mb-1">Music Curfew</div>
           <div class="text-lg font-semibold">{curfewDisplay}</div>
-          {venue.curfew_notes && <div class="text-xs text-gray-500 mt-1">{venue.curfew_notes}</div>}
+          {venue.curfew_notes && curfewNotes && <div class="text-xs text-gray-500 mt-1">{curfewNotes}</div>}
         </div>
       )}
       {peakMonths.length > 0 && (
@@ -218,46 +252,46 @@ const pageDesc = venue.editorial_summary
     )}
 
     <!-- Logistics & Practical Info -->
-    {(venue.load_in_notes || venue.power_notes || venue.sound_notes || venue.rain_backup_notes || venue.setup_areas?.length || venue.has_indoor_backup != null) && (
+    {hasLogistics && (
       <section class="mb-10">
         <h2 class="font-heading text-2xl font-bold mb-4">Logistics for Musicians</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {venue.load_in_notes && (
+          {hasLoadIn && (
             <div>
               <h3 class="font-semibold mb-2">Load-In & Access</h3>
               <p class="text-gray-600 text-sm">{venue.load_in_notes}</p>
             </div>
           )}
-          {venue.power_notes && (
+          {hasPower && (
             <div>
               <h3 class="font-semibold mb-2">Power Supply</h3>
               <p class="text-gray-600 text-sm">{venue.power_notes}</p>
             </div>
           )}
-          {venue.sound_notes && (
+          {hasSound && (
             <div>
               <h3 class="font-semibold mb-2">Sound Restrictions</h3>
               <p class="text-gray-600 text-sm">{venue.sound_notes}</p>
             </div>
           )}
-          {venue.rain_backup_notes && (
+          {hasRainBackup && (
             <div>
               <h3 class="font-semibold mb-2">Rain Backup</h3>
               <p class="text-gray-600 text-sm">{venue.rain_backup_notes}</p>
             </div>
           )}
-          {venue.setup_areas && venue.setup_areas.length > 0 && (
+          {hasSetupAreas && (
             <div>
               <h3 class="font-semibold mb-2">Performance Areas</h3>
               <ul class="text-gray-600 text-sm list-disc list-inside">
-                {venue.setup_areas.map((area: string) => <li>{area}</li>)}
+                {venue.setup_areas.filter((a: string) => a.trim()).map((area: string) => <li>{area}</li>)}
               </ul>
             </div>
           )}
-          {venue.has_indoor_backup != null && (
+          {hasIndoorBackup && (
             <div>
               <h3 class="font-semibold mb-2">Indoor Backup</h3>
-              <p class="text-gray-600 text-sm">{venue.has_indoor_backup ? 'Yes — indoor space available' : 'No indoor backup noted'}</p>
+              <p class="text-gray-600 text-sm">Yes — indoor space available for rain or noise-sensitive events</p>
             </div>
           )}
         </div>
@@ -265,7 +299,7 @@ const pageDesc = venue.editorial_summary
     )}
 
     {/* Overtime and Payment */}
-    {((venue.overtime_rate_low || venue.overtime_rate_high) || (venue.payment_methods && venue.payment_methods.length > 0)) && (
+    {(venue.overtime_rate_low || venue.overtime_rate_high || (venue.payment_methods && venue.payment_methods.length > 0)) && (
       <section class="mb-10">
         <h2 class="font-heading text-2xl font-bold mb-4">Additional Costs</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -32,7 +32,7 @@ const curr = '€';
             ? `From ${curr}${venue.price_range_low.toLocaleString()}`
             : '';
         const curfewInfo = venue.curfew_time
-          ? venue.curfew_time.replace(':00', '').replace(/^0/, '')
+          ? (() => { const [h, m] = venue.curfew_time.split(':'); const hr = parseInt(h, 10); return hr === 0 ? (m !== '00' ? '12:' + m + 'am' : 'Midnight') : hr < 12 ? hr + 'am' : hr === 12 ? '12pm' : (hr - 12) + 'pm'; })()
           : '';
 
         return (
