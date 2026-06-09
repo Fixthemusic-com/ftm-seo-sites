@@ -1,0 +1,199 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import BandCard from '../../components/BandCard.astro';
+import { siteConfig } from '../../lib/config';
+import { getBands, getCategories } from '../../lib/api';
+import type { Band, BandCategory, PaginatedResponse } from '../../lib/types';
+
+export async function getStaticPaths() {
+  const PAGE_SIZE = 24;
+  const MAX_API_PAGES = 50; // API enforces a max page limit
+  const [firstPage, categories] = await Promise.all([
+    getBands({ region: siteConfig.regionId, page_size: PAGE_SIZE }),
+    getCategories(),
+  ]);
+
+  const paths: { params: { path: string | undefined }; props: any }[] = [];
+
+  // --- "All" pages (no category filter) ---
+  const allNumPages = Math.min(firstPage.num_pages, MAX_API_PAGES);
+  // Page 1: /browse/ — pass pre-fetched bands to avoid re-fetching
+  paths.push({
+    params: { path: undefined },
+    props: { page: 1, numPages: allNumPages, totalCount: firstPage.count, category: null, categories, prefetchedBands: firstPage.items },
+  });
+  for (let p = 2; p <= allNumPages; p++) {
+    paths.push({
+      params: { path: String(p) },
+      props: { page: p, numPages: allNumPages, totalCount: firstPage.count, category: null, categories, prefetchedBands: null },
+    });
+  }
+
+  // --- Category pages (fetch page 1 of each in parallel) ---
+  const catResults = await Promise.all(
+    categories.map((cat) =>
+      getBands({ region: siteConfig.regionId, category: cat.slug, page_size: PAGE_SIZE })
+        .then((result) => ({ cat, result }))
+    )
+  );
+
+  for (const { cat, result } of catResults) {
+    const catNumPages = Math.min(result.num_pages, MAX_API_PAGES);
+
+    // Page 1: /browse/luxury-showbands/ — pass pre-fetched bands
+    paths.push({
+      params: { path: cat.slug },
+      props: { page: 1, numPages: catNumPages, totalCount: result.count, category: cat, categories, prefetchedBands: result.items },
+    });
+    for (let p = 2; p <= catNumPages; p++) {
+      paths.push({
+        params: { path: `${cat.slug}/${p}` },
+        props: { page: p, numPages: catNumPages, totalCount: result.count, category: cat, categories, prefetchedBands: null },
+      });
+    }
+  }
+
+  return paths;
+}
+
+interface Props {
+  page: number;
+  numPages: number;
+  totalCount: number;
+  category: BandCategory | null;
+  categories: BandCategory[];
+  prefetchedBands: Band[] | null;
+}
+
+const { page, numPages, totalCount, category, categories, prefetchedBands } = Astro.props;
+const PAGE_SIZE = 24;
+
+// Use prefetched bands for page 1, fetch for other pages
+let bands: Band[];
+if (prefetchedBands) {
+  bands = prefetchedBands;
+} else {
+  const result = await getBands({
+    region: siteConfig.regionId,
+    category: category?.slug,
+    page,
+    page_size: PAGE_SIZE,
+  });
+  bands = result.items;
+}
+
+// Build URLs
+function browseUrl(catSlug?: string, pageNum?: number): string {
+  if (catSlug && pageNum && pageNum > 1) return `/browse/${catSlug}/${pageNum}/`;
+  if (catSlug) return `/browse/${catSlug}/`;
+  if (pageNum && pageNum > 1) return `/browse/${pageNum}/`;
+  return '/browse/';
+}
+
+const currentCategorySlug = category?.slug || null;
+
+// Title / description
+const categoryName = category?.name || 'Wedding Entertainment';
+const pageTitle = page > 1
+  ? `Browse ${categoryName} - Page ${page}`
+  : `Browse Wedding Bands & Entertainment in Italy`;
+const pageDescription = category
+  ? `Browse ${totalCount}+ ${category.name} available in Italy. Filter by category, budget, and style.`
+  : `Browse ${totalCount}+ wedding bands and entertainment acts available in Italy. Filter by category, budget, and style.`;
+
+// Pagination: show max 10 page links centered around current page
+const maxPaginationLinks = 10;
+let startPage = Math.max(1, page - Math.floor(maxPaginationLinks / 2));
+let endPage = Math.min(numPages, startPage + maxPaginationLinks - 1);
+if (endPage - startPage + 1 < maxPaginationLinks) {
+  startPage = Math.max(1, endPage - maxPaginationLinks + 1);
+}
+const pageNumbers = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <section class="py-10">
+    <div class="max-w-7xl mx-auto px-4">
+      <h1 class="font-heading text-3xl md:text-4xl font-bold mb-2">
+        {category ? `Browse ${category.name}` : 'Browse Wedding Entertainment'}
+      </h1>
+      <p class="text-gray-600 mb-8">
+        {totalCount} acts{category ? ` in ${category.name}` : ' available in Italy'}
+        {page > 1 && ` — Page ${page}`}
+      </p>
+
+      <!-- Category filters -->
+      <div class="flex flex-wrap gap-3 mb-8">
+        <a
+          href="/browse/"
+          class:list={[
+            'px-4 py-2 rounded-full text-sm font-medium transition-colors',
+            !currentCategorySlug
+              ? 'bg-primary text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+          ]}
+        >
+          All
+        </a>
+        {categories.slice(0, 10).map((cat) => (
+          <a
+            href={browseUrl(cat.slug)}
+            class:list={[
+              'px-4 py-2 rounded-full text-sm font-medium transition-colors',
+              currentCategorySlug === cat.slug
+                ? 'bg-primary text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+            ]}
+          >
+            {cat.name} ({cat.num_bands})
+          </a>
+        ))}
+      </div>
+
+      <!-- Band grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {bands.map((band) => (
+          <BandCard band={band} />
+        ))}
+      </div>
+
+      <!-- Pagination -->
+      {numPages > 1 && (
+        <nav class="mt-12 flex justify-center items-center gap-2" aria-label="Pagination">
+          {page > 1 && (
+            <a
+              href={browseUrl(currentCategorySlug || undefined, page - 1)}
+              class="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+              aria-label="Previous page"
+            >
+              ←
+            </a>
+          )}
+          {pageNumbers.map((p) => (
+            <a
+              href={browseUrl(currentCategorySlug || undefined, p)}
+              class:list={[
+                'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                p === page
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+              ]}
+              aria-current={p === page ? 'page' : undefined}
+            >
+              {p}
+            </a>
+          ))}
+          {page < numPages && (
+            <a
+              href={browseUrl(currentCategorySlug || undefined, page + 1)}
+              class="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+              aria-label="Next page"
+            >
+              →
+            </a>
+          )}
+        </nav>
+      )}
+    </div>
+  </section>
+</BaseLayout>
