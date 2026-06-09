@@ -111,6 +111,12 @@ RULES:
 - Do NOT include any preamble or explanation, just output the rewritten HTML
 - Keep roughly the same length as the original
 - If the original has distinct sections (intro paragraph + longer description), maintain that split using a blank line between them
+- REMOVE all hyperlinks (<a> tags). Keep the visible link text but strip the <a> wrapper entirely
+- REMOVE entire sections about "Similar Bands", "Also appreciated", or cross-promotion of other bands
+- REMOVE any mentions of FixTheMusic, fixthemusic.com, or being "listed on" / "featured on" FixTheMusic
+- REMOVE "Contact [Band Name]" call-to-action lines and "Follow us on Facebook" lines
+- REMOVE "Browse our full collection/portfolio" lines
+- REMOVE references to "Best Wedding Bands" lists (e.g. "20 Best Jazz Bands in Italy")
 
 ORIGINAL TEXT:
 ${original}`;
@@ -138,6 +144,19 @@ ${original}`;
   const text = data.choices?.[0]?.message?.content?.trim();
   if (!text) return null;
 
+  // Post-processing: strip any remaining links and FTM references the LLM missed
+  function cleanHtml(html) {
+    // Strip <a> tags, keep inner text
+    html = html.replace(/<a\s[^>]*>(.*?)<\/a>/gi, '$1');
+    // Remove lines mentioning fixthemusic
+    html = html.replace(/<p>[^<]*fixthemusic[^<]*<\/p>/gi, '');
+    // Remove leftover URLs
+    html = html.replace(/https?:\/\/[^\s<"']+fixthemusic[^\s<"']*/gi, '');
+    // Remove empty paragraphs
+    html = html.replace(/<p>\s*<\/p>/g, '');
+    return html.trim();
+  }
+
   // Split into intro + description at the first blank line or after first </p>
   const parts = text.split(/\n\n+/);
   let introHtml, descHtml;
@@ -149,7 +168,7 @@ ${original}`;
     descHtml = '';
   }
 
-  return { introHtml, descHtml };
+  return { introHtml: cleanHtml(introHtml), descHtml: cleanHtml(descHtml) };
 }
 
 // Process bands with concurrency control
