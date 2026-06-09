@@ -10,6 +10,7 @@
     "astro": "astro",
     "test": "vitest run",
     "test:watch": "vitest",
+    "rewrite": "node scripts/rewrite-profiles.mjs",
     "lint": "prettier --check .",
     "format": "prettier --write ."
   },

@@ -5,6 +5,19 @@ import { siteConfig } from '../../lib/config';
 import { getBands, getBand, getRelatedBands, getBandProfile, getBandReviews } from '../../lib/api';
 import type { BandProfile, BandReview } from '../../lib/api';
 
+// Load AI-rewritten profile cache (falls back gracefully if not present)
+let profilesCache: Record<string, { intro_html: string; description_html: string; set_list_html: string; faq_html: string }> = {};
+try {
+  const siteId = import.meta.env.SITE_ID || 'weddingbandsitaly';
+  if (siteId === 'weddingbandsitaly') {
+    profilesCache = (await import('../../data/profiles-weddingbandsitaly.json')).default;
+  } else {
+    profilesCache = (await import('../../data/profiles-weddingmusicbanditaly.json')).default;
+  }
+} catch {
+  // No cache file yet — will use raw API content
+}
+
 // Generate static paths for all bands in the region at build time
 export async function getStaticPaths() {
   const allBands = [];
@@ -51,6 +64,13 @@ const priceDisplay =
       : null;
 
 const imageUrl = band.main_photo?.large || band.main_photo?.medium || null;
+
+// Use AI-rewritten content if cached, otherwise fall back to raw API
+const cached = profilesCache[slug!];
+const introHtml = cached?.intro_html || profile.intro_rendered || '';
+const descHtml = cached?.description_html || profile.description_rendered || '';
+const setListHtml = cached?.set_list_html || profile.set_list_rendered || '';
+const faqHtml = cached?.faq_html || profile.faq_rendered || '';
 
 // Schema.org MusicGroup
 const schemaOrg = {
@@ -135,30 +155,30 @@ const schemaOrg = {
     </div>
 
     <!-- Profile sections -->
-    {profile.intro_rendered && (
+    {introHtml && (
       <div class="prose prose-lg max-w-none mb-8">
         <h2>About {band.name}</h2>
-        <Fragment set:html={profile.intro_rendered} />
+        <Fragment set:html={introHtml} />
       </div>
     )}
 
-    {profile.description_rendered && (
+    {descHtml && (
       <div class="prose prose-lg max-w-none mb-8">
-        <Fragment set:html={profile.description_rendered} />
+        <Fragment set:html={descHtml} />
       </div>
     )}
 
-    {profile.set_list_rendered && (
+    {setListHtml && (
       <div class="prose prose-lg max-w-none mb-8">
         <h2>Set List</h2>
-        <Fragment set:html={profile.set_list_rendered} />
+        <Fragment set:html={setListHtml} />
       </div>
     )}
 
-    {profile.faq_rendered && (
+    {faqHtml && (
       <div class="prose prose-lg max-w-none mb-8">
         <h2>FAQ</h2>
-        <Fragment set:html={profile.faq_rendered} />
+        <Fragment set:html={faqHtml} />
       </div>
     )}
 
