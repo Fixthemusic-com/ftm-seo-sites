@@ -2,12 +2,13 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import BandCard from '../components/BandCard.astro';
 import { siteConfig } from '../lib/config';
-import { getRegion, getRecentlyBooked } from '../lib/api';
+import { getRegion, getBands } from '../lib/api';
 import { getCollection } from 'astro:content';
 
 // Fetch data at build time
 const region = await getRegion(siteConfig.regionSlug);
-const recentlyBooked = await getRecentlyBooked();
+const recentlyBookedResult = await getBands({ home_region: siteConfig.regionId, ordering: '-bookings_count', page_size: 4 });
+const recentlyBooked = recentlyBookedResult.items;
 const locations = (await getCollection('locations'))
   .sort((a, b) => a.data.regionName.localeCompare(b.data.regionName));
 const blogPosts = (await getCollection('blog', ({ data }) => !data.draft))
@@ -84,12 +85,12 @@ const schemaOrg = {
     </section>
   )}
 
-  <!-- Recently Booked -->
+  <!-- Featured Bands -->
   {recentlyBooked && recentlyBooked.length > 0 && (
     <section class="py-16">
       <div class="max-w-7xl mx-auto px-4">
         <h2 class="font-heading text-3xl font-bold text-center mb-10">
-          Recently Booked
+          Featured Bands
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {recentlyBooked.slice(0, 4).map((band) => (
