@@ -50,14 +50,23 @@ for enq in enquiries:
 ```python
 class PlannerProfile(models.Model):
     # Identification
-    email = models.EmailField(unique=True, db_index=True)
+    email = models.EmailField(unique=True, db_index=True,
+        help_text="Primary email from EnquiryMessage.from_address (kind='IN')")
     name = models.CharField(max_length=255, blank=True)
     company_name = models.CharField(max_length=255, blank=True)
     
-    # Contact enrichment (from Exa/Google)
-    website = models.URLField(blank=True)
+    # Contact enrichment (from Exa/Google/email signatures)
+    website = models.URLField(blank=True,
+        help_text="Extracted from email signature or Exa search")
     phone = models.CharField(max_length=50, blank=True)
     location = models.CharField(max_length=255, blank=True)
+    social_links = models.JSONField(default=list, blank=True,
+        help_text="List of {platform, url} from email signatures")
+    
+    # FTM account links — a planner may have multiple accounts (personal, team)
+    users = models.ManyToManyField('accounts.CustomUser', blank=True,
+        related_name='planner_profiles',
+        help_text="All CustomUser accounts linked to this planner")
     
     # Intelligence from correspondence
     bio = models.TextField(blank=True)  # LLM-synthesised professional bio
@@ -78,6 +87,8 @@ class PlannerProfile(models.Model):
     # Booking statistics
     total_enquiries = models.PositiveIntegerField(default=0)
     total_bookings = models.PositiveIntegerField(default=0)
+    
+    # M2M through tables
     venues_worked = models.ManyToManyField(
         'VenueProfile',
         through='PlannerVenueBooking',
@@ -88,12 +99,17 @@ class PlannerProfile(models.Model):
         through='PlannerBandBooking',
         blank=True
     )
+    enquiries = models.ManyToManyField(
+        'Enquiry',
+        through='PlannerEnquiry',
+        blank=True,
+        help_text="All enquiries attributed to this planner, with booking metadata"
+    )
     
     # Extraction tracking
     extracted_at = models.DateTimeField(null=True, blank=True)
-    last_enquiry_id = models.PositiveIntegerField(
-        help_text="Highest enquiry ID processed"
-    )
+    last_message_id = models.PositiveIntegerField(default=0,
+        help_text="Highest EnquiryMessage.id processed (for incremental updates)")
     
     # SEO
     slug = models.SlugField(unique=True, max_length=255)
@@ -102,11 +118,35 @@ class PlannerProfile(models.Model):
         ordering = ['-total_bookings']
 ```
 
-### Through models (booking aggregations)
+### Through models
+
 ```python
+class PlannerEnquiry(models.Model):
+    """Links a PlannerProfile to an Enquiry with booking metadata."""
+    planner = models.ForeignKey(PlannerProfile, on_delete=models.CASCADE)
+    enquiry = models.ForeignKey('booking.Enquiry', on_delete=models.CASCADE)
+    
+    # Booking outcome
+    converted = models.BooleanField(
+        help_text="Mirror of enquiry.converted — denormalised for queryability")
+    event_date = models.DateField(null=True, blank=True)
+    region = models.CharField(max_length=100, blank=True,
+        help_text="Cached from enquiry.location or venue.region")
+    
+    # Message stats
+    incoming_message_count = models.PositiveIntegerField(default=0,
+        help_text="Messages where from_address matches planner and kind='IN'")
+    first_message_date = models.DateTimeField(null=True, blank=True)
+    last_message_date = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        unique_together = ('planner', 'enquiry')
+        ordering = ['-event_date']
+
+
 class PlannerVenueBooking(models.Model):
     planner = models.ForeignKey(PlannerProfile, on_delete=models.CASCADE)
-    venue = models.ForeignKey(VenueProfile, on_delete=models.CASCADE)
+    venue = models.ForeignKey('VenueProfile', on_delete=models.CASCADE)
     booking_count = models.PositiveIntegerField(default=0)
     latest_booking = models.DateField(null=True, blank=True)
     
@@ -115,7 +155,7 @@ class PlannerVenueBooking(models.Model):
 
 class PlannerBandBooking(models.Model):
     planner = models.ForeignKey(PlannerProfile, on_delete=models.CASCADE)
-    band = models.ForeignKey(Band, on_delete=models.CASCADE)
+    band = models.ForeignKey('bands.Band', on_delete=models.CASCADE)
     booking_count = models.PositiveIntegerField(default=0)
     latest_booking = models.DateField(null=True, blank=True)
     
@@ -171,6 +211,7 @@ def create_or_update_profile(planner_data):
     """Create new profile or update existing with new enquiries."""
     email = planner_data['email']
     enquiries = planner_data['enquiries']
+    messages = planner_data.get('messages', [])  # all IN messages for this planner
     
     # Check if profile exists
     try:
@@ -180,15 +221,24 @@ def create_or_update_profile(planner_data):
         profile = PlannerProfile(email=email)
         existing = False
     
-    # Extraction logic
+    # Determine if re-extraction is needed
+    max_message_id = max(m.id for m in messages) if messages else 0
     should_extract = (
-        not existing or
-        profile.last_enquiry_id < planner_data['latest_id']
+        not existing
+        or profile.last_message_id < max_message_id
+        or not profile.name  # name extraction failed previously
     )
     
     if should_extract:
-        # LLM extraction from correspondence
-        extracted = extract_planner_intelligence(enquiries)
+        # Collect ALL messages (IN + OU) for LLM context
+        all_messages_for_enquiry = []
+        for enq in enquiries:
+            for eb in EnquiryBand.objects.filter(enquiry=enq):
+                msgs = EnquiryMessage.objects.filter(enquiryband=eb).order_by('created')
+                all_messages_for_enquiry.extend(msgs)
+        
+        # LLM extraction from full correspondence
+        extracted = extract_planner_intelligence(all_messages_for_enquiry)
         profile.name = extracted.get('name', '')
         profile.company_name = extracted.get('company', '')
         profile.bio = extracted.get('bio', '')
@@ -196,17 +246,117 @@ def create_or_update_profile(planner_data):
         profile.regions = extracted.get('regions', [])
         profile.slug = slugify(profile.name or email.split('@')[0])
     
+    # Extract website from email signatures (doesn't need LLM)
+    if not profile.website:
+        profile.website = extract_website_from_signatures(messages)
+    
+    # Extract social links from signatures
+    if not profile.social_links:
+        profile.social_links = extract_social_from_signatures(messages)
+    
     # Aggregate booking stats
     profile.total_enquiries = len(enquiries)
     profile.total_bookings = sum(1 for e in enquiries if e.converted)
-    profile.last_enquiry_id = planner_data['latest_id']
+    profile.last_message_id = max_message_id
     profile.extracted_at = timezone.now()
     profile.save()
     
-    # Update many-to-many relationships
+    # Link CustomUser accounts
+    for enq in enquiries:
+        if enq.user:
+            profile.users.add(enq.user)
+    
+    # Update through-tables
+    update_planner_enquiries(profile, enquiries, messages)
     update_planner_relationships(profile, enquiries)
     
     return profile
+
+
+def extract_website_from_signatures(messages):
+    """Parse website URL from email signatures in message HTML.
+    
+    content_html is the cleanest source (raw incoming email HTML).
+    body_html accumulates reply threads so has more signature instances.
+    """
+    import re
+    from urllib.parse import urlparse
+    
+    # Collect all HTML content from messages
+    html_bodies = []
+    for msg in messages:
+        if msg.content_html:
+            html_bodies.append(msg.content_html)
+        elif msg.body_html:
+            html_bodies.append(msg.body_html)
+    
+    if not html_bodies:
+        return ''
+    
+    # Extract all URLs from the HTML
+    url_pattern = re.compile(r'href=["\']([^"\']+)["\']', re.IGNORECASE)
+    domain_counts = {}
+    
+    for html in html_bodies:
+        urls = url_pattern.findall(html)
+        for url in urls:
+            try:
+                parsed = urlparse(url)
+                domain = parsed.netloc.lower()
+                if not domain:
+                    continue
+                # Skip common non-website links
+                if any(skip in domain for skip in [
+                    'gmail.com', 'outlook.com', 'yahoo.', 'hotmail.',
+                    'google.com', 'microsoft.com', 'apple.com',
+                    'facebook.com', 'instagram.com', 'twitter.com',
+                    'linkedin.com', 'youtube.com', 'tiktok.com',
+                    'mailchimp.com', 'sendgrid.net', 'mailgun',
+                    'unsubscribe', 'privacy', 'tracking'
+                ]):
+                    continue
+                if domain not in domain_counts:
+                    domain_counts[domain] = 0
+                domain_counts[domain] += 1
+            except Exception:
+                continue
+    
+    # Most frequent non-social domain is likely their website
+    if domain_counts:
+        top_domain = max(domain_counts, key=domain_counts.get)
+        if domain_counts[top_domain] >= 2:  # Appeared in 2+ signatures
+            return f"https://{top_domain}"
+    
+    return ''
+
+
+def extract_social_from_signatures(messages):
+    """Extract social media links from email signatures."""
+    import re
+    
+    social_patterns = {
+        'instagram': r'instagram\.com/([a-zA-Z0-9_.]+)',
+        'facebook': r'facebook\.com/([a-zA-Z0-9_.]+)',
+        'linkedin': r'linkedin\.com/(?:in|company)/([a-zA-Z0-9_-]+)',
+        'twitter': r'(?:twitter|x)\.com/([a-zA-Z0-9_]+)',
+        'tiktok': r'tiktok\.com/@([a-zA-Z0-9_.]+)',
+        'pinterest': r'pinterest\.com/([a-zA-Z0-9_.]+)',
+    }
+    
+    results = []
+    seen = set()
+    
+    for msg in messages:
+        html = msg.content_html or msg.body_html or ''
+        for platform, pattern in social_patterns.items():
+            matches = re.findall(pattern, html)
+            for match in matches:
+                key = f"{platform}:{match}"
+                if key not in seen:
+                    seen.add(key)
+                    results.append({'platform': platform, 'handle': match})
+    
+    return results
 ```
 
 ### Phase 3: LLM Intelligence Extraction
@@ -261,6 +411,45 @@ Base extraction ONLY on what's mentioned in the correspondence. Don't speculate.
 
 ### Phase 4: Relationship Aggregation
 ```python
+def update_planner_enquiries(profile, enquiries, messages):
+    """Update PlannerEnquiry through-table for each linked enquiry."""
+    # Build a lookup: enquiry_id → messages from this planner
+    enquiry_message_map = {}
+    for msg in messages:
+        enq_id = msg.enquiryband.enquiry_id
+        if enq_id not in enquiry_message_map:
+            enquiry_message_map[enq_id] = []
+        enquiry_message_map[enq_id].append(msg)
+    
+    for enq in enquiries:
+        msgs = enquiry_message_map.get(enq.id, [])
+        first_date = min(m.created for m in msgs) if msgs else None
+        last_date = max(m.created for m in msgs) if msgs else None
+        
+        # Determine region from enquiry location
+        region = ''
+        if enq.location_place_id:
+            # Try to resolve region from venue profile if available
+            try:
+                vp = VenueProfile.objects.get(place_id=enq.location_place_id)
+                region = vp.region.name if vp.region else ''
+            except VenueProfile.DoesNotExist:
+                pass
+        
+        PlannerEnquiry.objects.update_or_create(
+            planner=profile,
+            enquiry=enq,
+            defaults={
+                'converted': bool(enq.converted),
+                'event_date': enq.event_date,
+                'region': region,
+                'incoming_message_count': len(msgs),
+                'first_message_date': first_date,
+                'last_message_date': last_date,
+            }
+        )
+
+
 def update_planner_relationships(profile, enquiries):
     """Update many-to-many relationships from enquiries."""
     # Aggregate venue data
@@ -449,43 +638,64 @@ const bands = await getPlannerBands(planner.id)
 ### Incremental Updates
 New enquiries flow in continuously. The system needs to:
 
-1. **Queue new planners**: When enquiry is marked `maybe_wedding_planner=True`:
+1. **Queue new planners**: When an EnquiryMessage with `kind='IN'` arrives from a planner, queue it:
    ```python
-   def on_enquiry_saved(sender, instance, **kwargs):
-       if instance.maybe_wedding_planner:
-           # Check if planner profile exists
-           try:
-               profile = PlannerProfile.objects.get(email=instance.contact_email)
-               # Mark for re-extraction
-               profile.needs_update = True
-               profile.save(update_fields=['needs_update'])
-           except PlannerProfile.DoesNotExist:
-               # Queue for new profile creation
-               PlannerExtractionQueue.objects.create(
-                   email=instance.contact_email,
-                   enquiry=instance
-               )
-   ```
-
-2. **Batch processing**: Hourly/daily cron job:
-   ```bash
-   # Run extraction for queued planners
-   ftm-manage extract_planner_intelligence --queue
+   def on_message_saved(sender, instance, **kwargs):
+       if instance.kind != EnquiryMessage.INCOMING:
+           return
+       if not instance.from_address:
+           return
+       # Check if this planner already has a profile
+       email = instance.from_address.lower().strip()
+       if not email:
+           return
+       existing = PlannerProfile.objects.filter(email=email).exists()
+       if existing:
+           # Mark for incremental update (new messages arrived)
+           PlannerExtractionQueue.objects.update_or_create(
+               email=email,
+               defaults={'pending': True}
+           )
    
-   # Or process all planners needing updates
-   ftm-manage extract_planner_intelligence --needs-update
+   # Connect to EnquiryMessage post_save signal
    ```
 
-3. **Skip if complete**: If a planner already has a complete profile and the new enquiry doesn't add new intelligence (same venue, same band), skip re-extraction:
+2. **Also detect NEW planners** from incoming messages on planner-marked users:
+   ```python
+   def on_enquiry_message_saved(sender, instance, created, **kwargs):
+       if not created or instance.kind != EnquiryMessage.INCOMING:
+           return
+       # Check if the enquiry's user is a wedding planner
+       try:
+           enq = instance.enquiryband.enquiry
+           if enq.user and enq.user.maybe_wedding_planner:
+               email = (instance.from_address or '').lower().strip()
+               if email:
+                   PlannerExtractionQueue.objects.update_or_create(
+                       email=email,
+                       defaults={'pending': True}
+                   )
+       except (AttributeError, EnquiryBand.DoesNotExist):
+           pass
+   ```
+
+3. **Batch processing**: Hourly/daily cron job:
+   ```bash
+   ftm-manage extract_planner_intelligence --queue
+   ```
+   This processes all emails in PlannerExtractionQueue where `pending=True`,
+   then marks them `pending=False`.
+
+4. **Skip if complete**: Incremental logic uses `last_message_id`:
    ```python
    def needs_reextraction(profile, new_enquiry):
-       # Check if new enquiry adds new venue or band
+       # Re-extract if new enquiry adds new venue or band relationship
        existing_venues = set(profile.venues_worked.values_list('id', flat=True))
        existing_bands = set(profile.bands_booked.values_list('id', flat=True))
-       
        return (
-           new_enquiry.venue_id not in existing_venues or
-           new_enquiry.band_id not in existing_bands
+           new_enquiry.location_place_id not in existing_venue_place_ids or
+           (new_enquiry.enquiryband_set.filter().values_list('band_id', flat=True)
+            - existing_bands)
        )
    ```
 
@@ -543,22 +753,38 @@ npx astro build
 npx wrangler pages deploy dist --project-name=weddingbandsitaly --branch=staging
 ```
 
-### Step 4: Add signal handler for future enquiries
+### Step 4: Add signal handlers for future messages
 Add to `booking/signals.py`:
 ```python
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import Enquiry, PlannerExtractionQueue
+from .models import EnquiryMessage, PlannerExtractionQueue
 
-@receiver(post_save, sender=Enquiry)
-def queue_planner_extraction(sender, instance, created, **kwargs):
-    if created and instance.user.maybe_wedding_planner:
-        # We can't get from_address yet at enquiry creation — messages arrive later.
-        # Queue by user email; the extraction command will resolve planner emails
-        # from incoming EnquiryMessages when it runs.
-        PlannerExtractionQueue.objects.get_or_create(
-            user=instance.user,
-            defaults={'enquiry': instance}
+@receiver(post_save, sender=EnquiryMessage)
+def queue_planner_on_new_message(sender, instance, created, **kwargs):
+    """Queue planner for extraction when new IN messages arrive."""
+    if not created:
+        return
+    if instance.kind != EnquiryMessage.INCOMING:  # 'IN'
+        return
+    email = (instance.from_address or '').lower().strip()
+    if not email:
+        return
+    
+    # Check if this is from a wedding planner user
+    try:
+        enq = instance.enquiryband.enquiry
+        is_planner = enq.user and enq.user.maybe_wedding_planner
+    except Exception:
+        is_planner = False
+    
+    # Also queue if profile already exists (incremental update)
+    existing = PlannerProfile.objects.filter(email=email).exists()
+    
+    if is_planner or existing:
+        PlannerExtractionQueue.objects.update_or_create(
+            email=email,
+            defaults={'pending': True}
         )
 ```
 
