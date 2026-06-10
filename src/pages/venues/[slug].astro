@@ -201,7 +201,7 @@ const pageDesc = venue.editorial_summary
               <img
                 src={photo}
                 alt={`${name} photo ${i + 1}`}
-                class="w-full h-48 md:h-64 object-cover hover:scale-105 transition-transform duration-300"
+                class={`w-full object-cover hover:scale-105 transition-transform duration-300 ${i === 0 ? 'h-48 md:h-full' : 'h-48 md:h-64'}`}
                 loading="lazy"
               />
             </a>
