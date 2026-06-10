@@ -37,14 +37,6 @@ const {
   bodyHtml = '',
 } = Astro.props;
 
-// Pick the best review quote for the hero (highest rating first, then first non-null text)
-const heroReview = regionReviews.items
-  .filter(r => r.text && r.text.length > 40)
-  .sort((a, b) => ((b.rating ?? 0) - (a.rating ?? 0)))[0];
-const heroQuote = heroReview?.text.length > 180
-  ? heroReview.text.slice(0, 177) + '…'
-  : heroReview?.text;
-
 // Schema.org structured data
 const schemaOrg = [
   {
@@ -118,25 +110,6 @@ const schemaOrg = [
       <p class="text-lg md:text-xl opacity-90 mb-6 max-w-2xl mx-auto">
         {heroSubtitle}
       </p>
-
-      {heroQuote && (
-        <blockquote class="italic opacity-90 max-w-2xl mx-auto mb-6 text-base md:text-lg font-serif">
-          &ldquo;{heroQuote}&rdquo;
-          <div class="text-sm not-italic mt-3 opacity-75">
-            — {heroReview.author}
-            {heroReview.band_slug && (
-              <>
-                {' '}• <a href={`/bands/${heroReview.band_slug}/`} class="underline hover:opacity-100">{heroReview.band_name}</a>
-              </>
-            )}
-            {heroReview.venue_slug && (
-              <>
-                {' '}• <a href={`/venues/${heroReview.venue_slug}/`} class="underline hover:opacity-100">{heroReview.venue_name?.split(',')[0]}</a>
-              </>
-            )}
-          </div>
-        </blockquote>
-      )}
 
       <p class="text-sm opacity-70">
         {totalBands} verified acts available in {regionName}
