@@ -122,26 +122,12 @@ class PlannerProfile(models.Model):
 
 ```python
 class PlannerEnquiry(models.Model):
-    """Links a PlannerProfile to an Enquiry with booking metadata."""
+    """Simple join table — all metadata accessible via enquiry FK."""
     planner = models.ForeignKey(PlannerProfile, on_delete=models.CASCADE)
     enquiry = models.ForeignKey('booking.Enquiry', on_delete=models.CASCADE)
     
-    # Booking outcome
-    converted = models.BooleanField(
-        help_text="Mirror of enquiry.converted — denormalised for queryability")
-    event_date = models.DateField(null=True, blank=True)
-    region = models.CharField(max_length=100, blank=True,
-        help_text="Cached from enquiry.location or venue.region")
-    
-    # Message stats
-    incoming_message_count = models.PositiveIntegerField(default=0,
-        help_text="Messages where from_address matches planner and kind='IN'")
-    first_message_date = models.DateTimeField(null=True, blank=True)
-    last_message_date = models.DateTimeField(null=True, blank=True)
-    
     class Meta:
         unique_together = ('planner', 'enquiry')
-        ordering = ['-event_date']
 
 
 class PlannerVenueBooking(models.Model):
@@ -267,7 +253,7 @@ def create_or_update_profile(planner_data):
             profile.users.add(enq.user)
     
     # Update through-tables
-    update_planner_enquiries(profile, enquiries, messages)
+    update_planner_enquiries(profile, enquiries)
     update_planner_relationships(profile, enquiries)
     
     return profile
@@ -411,43 +397,10 @@ Base extraction ONLY on what's mentioned in the correspondence. Don't speculate.
 
 ### Phase 4: Relationship Aggregation
 ```python
-def update_planner_enquiries(profile, enquiries, messages):
-    """Update PlannerEnquiry through-table for each linked enquiry."""
-    # Build a lookup: enquiry_id → messages from this planner
-    enquiry_message_map = {}
-    for msg in messages:
-        enq_id = msg.enquiryband.enquiry_id
-        if enq_id not in enquiry_message_map:
-            enquiry_message_map[enq_id] = []
-        enquiry_message_map[enq_id].append(msg)
-    
+def update_planner_enquiries(profile, enquiries):
+    """Link enquiries to planner profile (simple join table)."""
     for enq in enquiries:
-        msgs = enquiry_message_map.get(enq.id, [])
-        first_date = min(m.created for m in msgs) if msgs else None
-        last_date = max(m.created for m in msgs) if msgs else None
-        
-        # Determine region from enquiry location
-        region = ''
-        if enq.location_place_id:
-            # Try to resolve region from venue profile if available
-            try:
-                vp = VenueProfile.objects.get(place_id=enq.location_place_id)
-                region = vp.region.name if vp.region else ''
-            except VenueProfile.DoesNotExist:
-                pass
-        
-        PlannerEnquiry.objects.update_or_create(
-            planner=profile,
-            enquiry=enq,
-            defaults={
-                'converted': bool(enq.converted),
-                'event_date': enq.event_date,
-                'region': region,
-                'incoming_message_count': len(msgs),
-                'first_message_date': first_date,
-                'last_message_date': last_date,
-            }
-        )
+        PlannerEnquiry.objects.get_or_create(planner=profile, enquiry=enq)
 
 
 def update_planner_relationships(profile, enquiries):
