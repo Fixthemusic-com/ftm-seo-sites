@@ -1,9 +1,10 @@
 ---
 import { getCollection } from 'astro:content';
 import LocationLayout from '../../layouts/LocationLayout.astro';
-import { getBands, getVenues } from '../../lib/api';
+import { getBands, getVenues, getRegionVenueReviews } from '../../lib/api';
 import { siteConfig } from '../../lib/config';
 import type { VenueListItem } from '../../lib/types';
+import type { VenueReviewList } from '../../lib/api';
 
 export async function getStaticPaths() {
   const locations = await getCollection('locations');
@@ -43,6 +44,14 @@ try {
 } catch (e) {
   console.warn(`Could not fetch venues for ${data.regionName}:`, e);
 }
+
+// Fetch venue reviews for this region
+let regionReviews: VenueReviewList = { items: [], count: 0 };
+try {
+  regionReviews = await getRegionVenueReviews(data.regionId, 10);
+} catch (e) {
+  // Reviews may not exist for all regions
+}
 ---
 
 <LocationLayout
@@ -55,6 +64,7 @@ try {
   bands={bands}
   totalBands={totalBands}
   venues={venues}
+  regionReviews={regionReviews}
 >
   <Content />
 </LocationLayout>

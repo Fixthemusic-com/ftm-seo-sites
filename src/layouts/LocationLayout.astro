@@ -128,6 +128,20 @@ const schemaOrg = [
     </section>
   )}
 
+  <!-- Venue Reviews from this region -->
+  {regionReviews.items.length > 0 && (
+    <section class="bg-white py-12">
+      <div class="max-w-4xl mx-auto px-4">
+        <VenueReviews
+          reviews={regionReviews.items}
+          total={regionReviews.count}
+          showVenue={true}
+          heading={`Venue Reviews in ${regionName}`}
+        />
+      </div>
+    </section>
+  )}
+
   <!-- Featured Bands from this region -->
   {bands.length > 0 && (
     <section class="bg-white py-16">
