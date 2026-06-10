@@ -117,7 +117,7 @@ const schemaOrg = {
   '@context': 'https://schema.org',
   '@type': 'Place',
   name: venue.canonical_name,
-  description: venue.editorial_summary || `${name} is a wedding venue in ${townPart || 'Italy'} popular for live music events.`,
+  description: venue.venue_description || venue.editorial_summary || `${name} is a wedding venue in ${townPart || 'Italy'} popular for live music events.`,
   geo: venue.lat && venue.lng ? {
     '@type': 'GeoCoordinates',
     latitude: venue.lat,
@@ -145,9 +145,11 @@ const breadcrumbSchema = {
 };
 
 const pageTitle = `${name} — Wedding Venue${townPart ? ' in ' + townPart : ''} | Live Music`;
-const pageDesc = venue.editorial_summary
-  ? venue.editorial_summary.slice(0, 160)
-  : `${name} in ${townPart || 'Italy'}. ${peakMonths.length ? 'Peak months: ' + peakMonths.slice(0, 3).join(', ') + '.' : ''} ${priceDisplay ? 'Typical music budget: ' + priceDisplay + '.' : ''} ${curfewDisplay ? 'Music curfew: ' + curfewDisplay + '.' : ''}`;
+const pageDesc = venue.venue_description
+  ? venue.venue_description.slice(0, 160)
+  : venue.editorial_summary
+    ? venue.editorial_summary.slice(0, 160)
+    : `${name} in ${townPart || 'Italy'}. ${peakMonths.length ? 'Peak months: ' + peakMonths.slice(0, 3).join(', ') + '.' : ''} ${priceDisplay ? 'Typical music budget: ' + priceDisplay + '.' : ''} ${curfewDisplay ? 'Music curfew: ' + curfewDisplay + '.' : ''}`;
 ---
 
 <BaseLayout title={pageTitle} description={pageDesc}>
@@ -210,18 +212,20 @@ const pageDesc = venue.editorial_summary
       </section>
     )}
 
-    <!-- Editorial Summary -->
-    {editorialClean && (
-      <section class="prose prose-lg max-w-none mb-10">
-        <div set:html={editorialClean.replace(/\n/g, '<br>')} />
-      </section>
-    )}
-
-    <!-- Venue Description (from website) -->
+    <!-- Venue Description (Exa + LLM generated) - first major section -->
     {venue.venue_description && (
       <section class="mb-10">
         <h2 class="font-heading text-2xl font-bold mb-4">About {name}</h2>
         <div class="prose prose-lg max-w-none" set:html={venue.venue_description.replace(/\n/g, '<br>')} />
+      </section>
+    )}
+
+    <!-- Editorial: What Performing Here Is Like (from correspondence) -->
+    {editorialClean && (
+      <section class="mb-10">
+        <h2 class="font-heading text-2xl font-bold mb-4">What Performing Here Is Like</h2>
+        <p class="text-sm text-gray-500 mb-3">Practical insights from musicians who have played at {name}</p>
+        <div class="prose prose-lg max-w-none" set:html={editorialClean.replace(/\n/g, '<br>')} />
       </section>
     )}
 
