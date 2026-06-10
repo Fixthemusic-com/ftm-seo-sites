@@ -50,6 +50,7 @@ export async function getRegion(slug: string): Promise<Region> {
 export interface BandListParams {
   region?: number;
   home_region?: number;
+  booked_in?: number;
   category?: string;
   page?: number;
   page_size?: number;
@@ -63,6 +64,7 @@ export async function getBands(
   const query = new URLSearchParams();
   if (params.region) query.set('region', String(params.region));
   if (params.home_region) query.set('home_region', String(params.home_region));
+  if (params.booked_in) query.set('booked_in', String(params.booked_in));
   if (params.category) query.set('category', params.category);
   if (params.page) query.set('page', String(params.page));
   if (params.page_size) query.set('page_size', String(params.page_size));

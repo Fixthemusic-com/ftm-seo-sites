@@ -7,7 +7,7 @@ import { getCollection } from 'astro:content';
 
 // Fetch data at build time
 const region = await getRegion(siteConfig.regionSlug);
-const recentlyBookedResult = await getBands({ home_region: siteConfig.regionId, ordering: '-bookings_count', page_size: 4 });
+const recentlyBookedResult = await getBands({ booked_in: siteConfig.regionId, ordering: '-bookings_count', page_size: 4 });
 const recentlyBooked = recentlyBookedResult.items;
 const locations = (await getCollection('locations'))
   .sort((a, b) => a.data.regionName.localeCompare(b.data.regionName));

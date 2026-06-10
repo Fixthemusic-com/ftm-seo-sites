@@ -28,7 +28,7 @@ export async function getStaticPaths() {
 
   while (hasMore) {
     const result = await getBands({
-      home_region: siteConfig.regionId,
+      booked_in: siteConfig.regionId,
       page,
       page_size: 100,
     });
