@@ -33,6 +33,21 @@ const schemaOrg = {
 <BaseLayout>
   <!-- Schema.org -->
   <script type="application/ld+json" set:html={JSON.stringify(schemaOrg)} />
+  <script type="application/ld+json" set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: siteConfig.name,
+    url: `https://${siteConfig.domain}`,
+    logo: `https://${siteConfig.domain}/images/og-wbi.png`,
+    description: siteConfig.description,
+    foundingDate: '2026',
+    parentOrganization: {
+      '@type': 'Organization',
+      name: 'FixTheMusic',
+      url: 'https://www.fixthemusic.com',
+    },
+    sameAs: ['https://www.fixthemusic.com'],
+  })} />
 
   <!-- Hero -->
   <section class="bg-primary text-white py-20 md:py-32">

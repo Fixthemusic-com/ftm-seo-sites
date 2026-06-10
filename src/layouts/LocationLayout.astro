@@ -86,6 +86,43 @@ const schemaOrg = [
     ],
   },
 ];
+
+// Extract FAQ items from bodyHtml for FAQPage schema
+const faqItems: { question: string; answer: string }[] = [];
+const faqMatch = bodyHtml.match(/<h[2-4][^>]*>[^<]*(?:faq|frequently asked|questions?)[^<]*<\/h[2-4]>([\s\S]*?)(?=<h2|$)/i);
+if (faqMatch) {
+  const faqSection = faqMatch[1];
+  const qaRegex = /<h[3-4][^>]*>(.*?)<\/h[3-4]>\s*([\s\S]*?)(?=<h[3-4]|$)/gi;
+  let m;
+  while ((m = qaRegex.exec(faqSection)) !== null) {
+    const question = m[1].replace(/<[^>]*>/g, '').trim();
+    const answer = m[2].replace(/<[^>]*>/g, '').trim();
+    if (question && answer && question.includes('?')) {
+      faqItems.push({ question, answer });
+    }
+  }
+}
+// Also try: <strong>Question?</strong><p>Answer</p> pattern
+if (faqItems.length === 0) {
+  const altRegex = /<(?:strong|b)[^>]*>([^<]*\?)<\/(?:strong|b)>\s*(?:<p[^>]*>)?([\s\S]*?)(?:<\/p>)?/gi;
+  let m;
+  while ((m = altRegex.exec(bodyHtml)) !== null) {
+    const question = m[1].trim();
+    const answer = m[2].replace(/<[^>]*>/g, '').trim();
+    if (question && answer) faqItems.push({ question, answer });
+  }
+}
+if (faqItems.length > 0) {
+  schemaOrg.push({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqItems.map(item => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: { '@type': 'Answer', text: item.answer },
+    })),
+  } as any);
+}
 ---
 
 <BaseLayout title={title} description={description}>

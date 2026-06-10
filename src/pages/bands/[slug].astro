@@ -227,6 +227,8 @@ const breadcrumbSchema = {
           src={imageUrl}
           alt={band.name}
           class="w-full max-h-96 object-cover"
+          loading="eager"
+          fetchpriority="high"
         />
       </div>
     )}

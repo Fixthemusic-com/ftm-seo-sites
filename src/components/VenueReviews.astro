@@ -38,15 +38,8 @@ function stars(rating: number | null): string {
   return s;
 }
 
-// AggregateRating schema (only emit when we have rated reviews)
-const aggregateSchema = ratingCount > 0 ? {
-  '@context': 'https://schema.org',
-  '@type': 'AggregateRating',
-  ratingValue: avgRating.toFixed(1),
-  reviewCount: total,
-  bestRating: '5',
-  worstRating: '1',
-} : null;
+// Note: AggregateRating schema REMOVED — standalone @type is invalid.
+// Rating data belongs on the parent Place or MusicGroup schema, not as a bare script tag.
 ---
 
 {reviews.length > 0 && (
@@ -62,10 +55,6 @@ const aggregateSchema = ratingCount > 0 ? {
         </div>
       )}
     </div>
-
-    {aggregateSchema && (
-      <script type="application/ld+json" set:html={JSON.stringify(aggregateSchema)} />
-    )}
 
     <div class="space-y-6">
       {reviews.map((review) => (

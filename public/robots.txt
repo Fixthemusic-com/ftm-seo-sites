@@ -3,4 +3,3 @@ Allow: /
 Disallow: /enquire/
 
 Sitemap: https://weddingbandsitaly.co.uk/sitemap-index.xml
-Sitemap: https://weddingmusicbanditaly.co.uk/sitemap-index.xml

@@ -27,7 +27,7 @@ const config: SiteConfig = {
 
   // SEO
   locale: 'en-GB',
-  ogImage: '/images/og-wbi.jpg',
+  ogImage: '/images/og-wbi.png',
 
   // API auth
   sourceSite: 'weddingbandsitaly',

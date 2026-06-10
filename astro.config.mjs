@@ -27,6 +27,7 @@ export default defineConfig({
     sitemap(),
   ],
   output: 'static',
+  trailingSlash: 'always',
   build: {
     format: 'directory',
   },

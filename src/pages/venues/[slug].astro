@@ -172,9 +172,8 @@ const breadcrumbSchema = {
   '@type': 'BreadcrumbList',
   itemListElement: [
     { '@type': 'ListItem', position: 1, name: 'Home', item: `https://${siteConfig.domain}/` },
-    { '@type': 'ListItem', position: 2, name: 'Locations', item: `https://${siteConfig.domain}/locations/` },
-    { '@type': 'ListItem', position: 3, name: 'Venues', item: `https://${siteConfig.domain}/venues/` },
-    { '@type': 'ListItem', position: 4, name: name },
+    { '@type': 'ListItem', position: 2, name: 'Venues', item: `https://${siteConfig.domain}/venues/` },
+    { '@type': 'ListItem', position: 3, name: name },
   ],
 };
 
@@ -238,7 +237,8 @@ const pageDesc = venueDescClean
                 src={photo}
                 alt={`${name} photo ${i + 1}`}
                 class={`w-full object-cover hover:scale-105 transition-transform duration-300 ${i === 0 ? 'h-48 md:h-[33.5rem]' : 'h-48 md:h-64'}`}
-                loading="lazy"
+                loading={i === 0 ? 'eager' : 'lazy'}
+                fetchpriority={i === 0 ? 'high' : undefined}
               />
             </a>
           ))}

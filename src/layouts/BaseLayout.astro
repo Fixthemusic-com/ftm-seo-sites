@@ -43,6 +43,11 @@ const { theme } = siteConfig;
     <meta property="og:url" content={canonical} />
     <meta property="og:site_name" content={siteConfig.name} />
     <meta property="og:locale" content={siteConfig.locale} />
+    <meta property="article:published_time" content={Astro.props.ogType === 'article' ? (Astro.props as any).publishDate : undefined} />
+
+    <!-- International SEO -->
+    <link rel="alternate" hreflang="en-gb" href={canonical} />
+    <link rel="alternate" hreflang="x-default" href={canonical} />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
@@ -56,6 +61,10 @@ const { theme } = siteConfig;
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Resource hints for third-party origins -->
+    <link rel="dns-prefetch" href="https://image.mux.com" />
+    <link rel="dns-prefetch" href="https://stream.mux.com" />
+    <link rel="dns-prefetch" href="https://fixthemusic.s3.amazonaws.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap"
       rel="stylesheet"

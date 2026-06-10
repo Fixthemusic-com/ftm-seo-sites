@@ -72,6 +72,14 @@ const schemaOrg = {
   description={`Browse ${venues.length} Italian wedding venues with real data: typical music budgets, curfew times, guest capacities, and top bands at each venue.`}
 >
   <script type="application/ld+json" set:html={JSON.stringify(schemaOrg)} />
+  <script type="application/ld+json" set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `https://${siteConfig.domain}/` },
+      { '@type': 'ListItem', position: 2, name: 'Wedding Venues in Italy' },
+    ],
+  })} />
 
   <div class="max-w-6xl mx-auto px-4 py-10">
     <!-- Hero -->
