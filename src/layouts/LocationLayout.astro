@@ -2,8 +2,10 @@
 import BaseLayout from './BaseLayout.astro';
 import BandCard from '../components/BandCard.astro';
 import PopularVenues from '../components/PopularVenues.astro';
+import VenueReviews from '../components/VenueReviews.astro';
 import { siteConfig } from '../lib/config';
 import type { Band, VenueListItem } from '../lib/types';
+import type { VenueReview } from '../lib/api';
 
 interface Props {
   title: string;
@@ -15,6 +17,7 @@ interface Props {
   bands: Band[];
   totalBands: number;
   venues?: VenueListItem[];
+  regionReviews?: { items: VenueReview[]; count: number };
 }
 
 const {
@@ -27,6 +30,7 @@ const {
   bands,
   totalBands,
   venues = [],
+  regionReviews = { items: [], count: 0 },
 } = Astro.props;
 
 // Schema.org structured data

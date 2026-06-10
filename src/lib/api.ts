@@ -213,3 +213,65 @@ export async function getVenue(slug: string): Promise<VenueDetail> {
     }
   );
 }
+
+// ─── Venue Reviews ───────────────────────────────────────
+
+export interface VenueReview {
+  id: number;
+  text: string;
+  text_html: string;
+  author: string;
+  rating: number | null;
+  time_published: string | null;
+  time_created: string;
+  event_string: string | null;
+  band_name: string;
+  band_slug: string;
+  venue_name: string | null;
+  venue_slug: string | null;
+  photos: { id: number; file: string }[];
+  response: { text: string; message_rendered: string; time_created: string } | null;
+}
+
+export interface VenueReviewList {
+  items: VenueReview[];
+  count: number;
+}
+
+/**
+ * Fetch reviews for a specific venue (requires site token auth)
+ */
+export async function getVenueReviews(
+  slug: string,
+  limit = 50,
+  offset = 0,
+): Promise<VenueReviewList> {
+  return apiFetch<VenueReviewList>(
+    `/api-v2/venues/${slug}/reviews/?limit=${limit}&offset=${offset}`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SITE_TOKEN}`,
+      },
+    }
+  );
+}
+
+/**
+ * Fetch all reviews for venues in a region (requires site token auth)
+ */
+export async function getRegionVenueReviews(
+  regionId: number,
+  limit = 50,
+  offset = 0,
+): Promise<VenueReviewList> {
+  return apiFetch<VenueReviewList>(
+    `/api-v2/venues/reviews/?region_id=${regionId}&limit=${limit}&offset=${offset}`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SITE_TOKEN}`,
+      },
+    }
+  );
+}
