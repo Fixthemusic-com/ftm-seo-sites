@@ -10,9 +10,10 @@ interface Props {
   venues: VenueListItem[];
   regionName: string;
   maxItems?: number;
+  regionSlug?: string;
 }
 
-const { venues, regionName, maxItems = 6 } = Astro.props;
+const { venues, regionName, maxItems = 6, regionSlug } = Astro.props;
 const shown = venues.slice(0, maxItems);
 const curr = '€';
 ---
@@ -53,8 +54,8 @@ const curr = '€';
     </div>
 
     <div class="text-center mt-4">
-      <a href="/venues/" class="text-primary hover:underline text-sm font-medium">
-        Browse all {shown.length < 100 ? venues.length : `${venues.length}+`} venues →
+      <a href={regionSlug ? `/venues/by-region/${regionSlug}/` : '/venues/'} class="text-primary hover:underline text-sm font-medium">
+        Browse all {shown.length < 100 ? venues.length : `${venues.length}+`} venues in {regionName} →
       </a>
     </div>
   </section>

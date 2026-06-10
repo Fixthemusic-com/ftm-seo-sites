@@ -1,0 +1,227 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+import { getVenues } from '../../../lib/api';
+import { siteConfig } from '../../../lib/config';
+import type { VenueListItem } from '../../../lib/types';
+import { venueShortName, venueTown, monthName } from '../../../lib/types';
+
+export async function getStaticPaths() {
+  const locations = await getCollection('locations');
+  return locations.map((loc) => ({
+    params: { slug: loc.slug },
+    props: { loc },
+  }));
+}
+
+const { loc } = Astro.props;
+const regionName = loc.data.regionName;
+const regionSlug = loc.slug;
+const regionId = loc.data.regionId;
+
+let allVenues: VenueListItem[] = [];
+try {
+  allVenues = await getVenues({ region_id: regionId, min_bookings: 3, limit: 500 });
+} catch (e) {
+  console.warn(`Could not fetch venues for ${regionName}:`, e);
+}
+
+const curr = '€';
+const curfewFmt = (c: string | null) => {
+  if (!c) return '';
+  const [h, m] = c.split(':');
+  const hr = parseInt(h, 10);
+  if (hr === 0) return m !== '00' ? `12:${m}am` : 'Midnight';
+  if (hr < 12) return `${hr}${m !== '00' ? ':' + m : ''}am`;
+  if (hr === 12) return `12${m !== '00' ? ':' + m : ''}pm`;
+  return `${hr - 12}${m !== '00' ? ':' + m : ''}pm`;
+};
+
+// Pre-compute stats in frontmatter to avoid complex inline expressions
+const bandsPerforming = (() => {
+  const slugs = new Set<string>();
+  for (const v of allVenues) {
+    const topBands = (v as any).top_bands;
+    if (Array.isArray(topBands)) {
+      for (const b of topBands) {
+        if (b?.slug) slugs.add(b.slug);
+      }
+    }
+  }
+  return slugs.size || allVenues.reduce((s, v) => s + (v.unique_band_count || 0), 0);
+})();
+
+const mostCommonCurfew = (() => {
+  const withCurfew = allVenues.filter(v => v.curfew_time);
+  if (withCurfew.length === 0) return '—';
+  const counts: Record<string, number> = {};
+  for (const v of withCurfew) {
+    counts[v.curfew_time!] = (counts[v.curfew_time!] || 0) + 1;
+  }
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  return curfewFmt(sorted[0]?.[0]) || '—';
+})();
+
+const schemaOrg = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: `Wedding Venues in ${regionName}`,
+  description: `${allVenues.length} popular wedding venues in ${regionName} — with typical music budgets, curfew times, and guest capacities.`,
+  url: `https://${siteConfig.domain}/venues/by-region/${regionSlug}/`,
+  numberOfItems: allVenues.length,
+  isPartOf: {
+    '@type': 'WebSite',
+    name: siteConfig.name,
+    url: `https://${siteConfig.domain}`,
+  },
+  about: {
+    '@type': 'Place',
+    name: regionName,
+    address: { '@type': 'PostalAddress', addressCountry: 'IT', addressRegion: regionName },
+  },
+};
+
+const breadcrumbSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: `https://${siteConfig.domain}/` },
+    { '@type': 'ListItem', position: 2, name: 'Venues', item: `https://${siteConfig.domain}/venues/` },
+    { '@type': 'ListItem', position: 3, name: regionName },
+  ],
+};
+---
+
+<BaseLayout
+  title={`Wedding Venues in ${regionName} — ${allVenues.length} Venues with Live Music Data`}
+  description={`Browse ${allVenues.length} wedding venues in ${regionName}, Italy — with real music budgets, curfew times, guest capacities, and popular bands at each venue.`}
+>
+  <script type="application/ld+json" set:html={JSON.stringify(schemaOrg)} />
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+
+  <div class="max-w-6xl mx-auto px-4 py-10">
+    <header class="mb-10">
+      <h1 class="font-heading text-3xl md:text-4xl font-bold mb-3">
+        Wedding Venues in {regionName}
+      </h1>
+      <p class="text-lg text-gray-600 max-w-3xl">
+        {allVenues.length} wedding venues in {regionName} with real booking data —
+        including music budgets, curfew times, guest capacities, and popular bands at each venue.
+      </p>
+      <div class="flex items-center gap-4 mt-4 text-sm">
+        <a href={`/locations/${regionSlug}/`} class="text-primary hover:underline">
+          ← Back to {regionName} wedding guide
+        </a>
+        <span class="text-gray-300">|</span>
+        <a href="/venues/" class="text-gray-500 hover:text-primary hover:underline">
+          All Italy venues
+        </a>
+      </div>
+    </header>
+
+    <!-- Quick stats -->
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
+      <div class="bg-gray-50 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-primary">{allVenues.length}</div>
+        <div class="text-sm text-gray-500">Venues</div>
+      </div>
+<div class="bg-gray-50 rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-primary">{bandsPerforming || '—'}</div>
+        <div class="text-sm text-gray-500">Bands Performing</div>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4 text-center col-span-2 md:col-span-1">
+        <div class="text-2xl font-bold text-primary">{mostCommonCurfew}</div>
+        <div class="text-sm text-gray-500">Most Common Curfew</div>
+      </div>
+    </div>
+
+    {allVenues.length === 0 ? (
+      <p class="text-gray-600 py-8 text-center">
+        Venue data not yet available for {regionName}. <a href="/venues/" class="text-primary hover:underline">View all Italian venues →</a>
+      </p>
+    ) : (
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {allVenues.map((venue) => {
+          const vName = venueShortName(venue.canonical_name);
+          const vTown = venueTown(venue.canonical_name);
+          const priceInfo = venue.price_range_low && venue.price_range_high
+            ? `${curr}${venue.price_range_low.toLocaleString()}–${curr}${venue.price_range_high.toLocaleString()}`
+            : venue.price_range_low
+              ? `From ${curr}${venue.price_range_low.toLocaleString()}`
+              : '';
+          const curfewInfo = curfewFmt(venue.curfew_time);
+          const peakMonths = venue.peak_months?.slice(0, 3).map(monthName).filter(Boolean).join(', ') || '';
+
+          return (
+            <a
+              href={`/venues/${venue.slug}/`}
+              class="block border border-gray-200 rounded-xl p-5 hover:border-primary/40 hover:shadow-md transition group"
+            >
+              <div class="flex justify-between items-start mb-2">
+                <h2 class="font-heading text-lg font-semibold group-hover:text-primary transition leading-tight">
+                  {vName}
+                </h2>
+                <svg class="w-4 h-4 text-gray-400 group-hover:text-primary transition shrink-0 ml-2 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+              {vTown && <p class="text-sm text-gray-500 mb-3">{vTown}</p>}
+
+              <div class="text-sm text-gray-600 space-y-1">
+                {priceInfo && (
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{priceInfo}</span>
+                  </div>
+                )}
+                {curfewInfo && (
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Curfew: {curfewInfo}</span>
+                  </div>
+                )}
+                {venue.guest_count_median > 0 && (
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span>~{venue.guest_count_median} guests</span>
+                  </div>
+                )}
+                {venue.unique_band_count > 0 && (
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    </svg>
+                    <span>{venue.unique_band_count} bands perform here</span>
+                  </div>
+                )}
+                {peakMonths && (
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Peak: {peakMonths}</span>
+                  </div>
+                )}
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    )}
+
+    {/* Footer CTA */}
+    <div class="text-center mt-12 py-8 border-t border-gray-200">
+      <h2 class="font-heading text-xl font-semibold mb-2">Planning a wedding in {regionName}?</h2>
+      <p class="text-gray-600 mb-5">Let us match you with the right band for your venue, date, and budget.</p>
+      <a href="/enquire/" class="inline-block bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition">
+        Get a Quote
+      </a>
+    </div>
+  </div>
+</BaseLayout>

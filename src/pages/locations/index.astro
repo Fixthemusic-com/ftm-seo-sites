@@ -156,7 +156,7 @@ const schemaOrg = [
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""></script>
 
-  <script is:inline define:vars={{ mapData, primaryColor: siteConfig.primaryColor, accentColor: siteConfig.accentColor }}>
+  <script is:inline define:vars={{ mapData, primaryColor: siteConfig.theme.primaryColor, accentColor: siteConfig.theme.accentColor }}>
     document.addEventListener('DOMContentLoaded', function () {
       // Detect touch device
       var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
