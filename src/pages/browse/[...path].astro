@@ -37,21 +37,34 @@ export async function getStaticPaths() {
     )
   );
 
+  // Build a map of category slug -> actual count (filtered by home_region)
+  const categoryCounts: Record<string, number> = {};
+  for (const { cat, result } of catResults) {
+    categoryCounts[cat.slug] = result.count;
+  }
+
   for (const { cat, result } of catResults) {
     const catNumPages = Math.min(result.num_pages, MAX_API_PAGES);
 
     // Page 1: /browse/luxury-showbands/ -- pass pre-fetched bands
     paths.push({
       params: { path: cat.slug },
-      props: { page: 1, numPages: catNumPages, totalCount: result.count, category: cat, categories, prefetchedBands: result.items },
+      props: { page: 1, numPages: catNumPages, totalCount: result.count, category: cat, categories, prefetchedBands: result.items, categoryCounts },
     });
     for (let p = 2; p <= catNumPages; p++) {
       paths.push({
         params: { path: `${cat.slug}/${p}` },
-        props: { page: p, numPages: catNumPages, totalCount: result.count, category: cat, categories, prefetchedBands: null },
+        props: { page: p, numPages: catNumPages, totalCount: result.count, category: cat, categories, prefetchedBands: null, categoryCounts },
       });
     }
   }
+
+  // Also add categoryCounts to "All" pages
+  paths.forEach((p) => {
+    if (!p.props.categoryCounts) {
+      p.props.categoryCounts = categoryCounts;
+    }
+  });
 
   return paths;
 }
@@ -63,9 +76,10 @@ interface Props {
   category: BandCategory | null;
   categories: BandCategory[];
   prefetchedBands: Band[] | null;
+  categoryCounts: Record<string, number>;
 }
 
-const { page, numPages, totalCount, category, categories, prefetchedBands } = Astro.props;
+const { page, numPages, totalCount, category, categories, prefetchedBands, categoryCounts } = Astro.props;
 const PAGE_SIZE = 24;
 
 // Use prefetched bands for page 1, fetch for other pages
@@ -227,7 +241,7 @@ const regionId = siteConfig.regionId;
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
             ]}
           >
-            {cat.name} ({cat.num_bands})
+            {cat.name} ({categoryCounts[cat.slug] ?? cat.num_bands})
           </a>
         ))}
       </div>
