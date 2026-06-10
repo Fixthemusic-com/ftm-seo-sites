@@ -199,6 +199,22 @@ const schemaOrg = [
 
       var bounds = [];
       var activeMarker = null;
+      var closeTimers = new Map();
+      var CLOSE_DELAY = 250; // ms — lets cursor travel from pin to popup comfortably
+      var midCounter = 0;
+      function scheduleClose(mk, id) {
+        var t = setTimeout(function () {
+          mk.setIcon(pinDefault);
+          mk.closePopup();
+          closeTimers.delete(id);
+        }, CLOSE_DELAY);
+        closeTimers.set(id, t);
+      }
+      function cancelClose(id) {
+        var t = closeTimers.get(id);
+        if (t) { clearTimeout(t); closeTimers.delete(id); }
+      }
+
 
       mapData.forEach(function (loc) {
         var marker = L.marker([loc.lat, loc.lng], { icon: pinDefault }).addTo(map);
@@ -230,18 +246,31 @@ const schemaOrg = [
           activeMarker = this;
         });
 
-        // Hover effects only on non-touch devices
+        // Hover effects only on non-touch devices — debounced so cursor can travel pin → popup
         if (!isTouchDevice) {
+          var mid = midCounter++;
           marker.on('mouseover', function () {
-            if (this !== activeMarker) {
-              this.setIcon(pinHover);
-            }
+            cancelClose(mid);
+            this.setIcon(pinHover);
             this.openPopup();
           });
           marker.on('mouseout', function () {
-            if (this !== activeMarker) {
-              this.setIcon(pinDefault);
-            }
+            if (this === activeMarker) return; // clicked pins stay open
+            var self = this;
+            scheduleClose(self, mid);
+          });
+          // Keep popup open while hovering it (lets user click the CTA)
+          marker.on('popupopen', function () {
+            var el = this.getPopup().getElement();
+            if (!el || el.dataset.hoverBound) return;
+            el.dataset.hoverBound = '1';
+            el.addEventListener('mouseenter', function () {
+              cancelClose(mid);
+            });
+            el.addEventListener('mouseleave', function () {
+              if (marker === activeMarker) return;
+              scheduleClose(marker, mid);
+            });
           });
         }
 
