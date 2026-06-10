@@ -1,6 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import BlogPostLayout from '../../layouts/BlogPostLayout.astro';
+import { siteConfig } from '../../lib/config';
 
 export async function getStaticPaths() {
   const posts = await getCollection('blog');
@@ -12,6 +13,63 @@ export async function getStaticPaths() {
 
 const { entry } = Astro.props;
 const { Content } = await entry.render();
+
+// Parse FAQ pairs from raw MDX body (### Question headings under ## FAQ section)
+const faqPairs: { question: string; answer: string }[] = [];
+const body = entry.body || '';
+const faqMatch = body.match(/## Frequently Asked Questions([\s\S]*)/);
+if (faqMatch) {
+  const faqSection = faqMatch[1];
+  const qRegex = /### (.+)\n\n([\s\S]*?)(?=\n### |$)/g;
+  let m;
+  while ((m = qRegex.exec(faqSection)) !== null) {
+    const q = m[1].trim();
+    const a = m[2].trim().replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\n+/g, ' ');
+    if (q && a) faqPairs.push({ question: q, answer: a });
+  }
+}
+
+// Article schema
+const articleSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: entry.data.title,
+  description: entry.data.description,
+  datePublished: entry.data.publishDate.toISOString(),
+  author: { '@type': 'Organization', name: siteConfig.name },
+  publisher: {
+    '@type': 'Organization',
+    name: siteConfig.name,
+    url: `https://${siteConfig.domain}`,
+  },
+  mainEntityOfPage: {
+    '@type': 'WebPage',
+    '@id': `https://${siteConfig.domain}/blog/${entry.slug}/`,
+  },
+  ...(entry.data.tags?.length ? { keywords: entry.data.tags.join(', ') } : {}),
+};
+
+// FAQ schema
+const faqSchema = faqPairs.length > 0 ? {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqPairs.map((p) => ({
+    '@type': 'Question',
+    name: p.question,
+    acceptedAnswer: { '@type': 'Answer', text: p.answer },
+  })),
+} : null;
+
+// BreadcrumbList
+const breadcrumbSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: `https://${siteConfig.domain}/` },
+    { '@type': 'ListItem', position: 2, name: 'Guides', item: `https://${siteConfig.domain}/blog/` },
+    { '@type': 'ListItem', position: 3, name: entry.data.title },
+  ],
+};
 ---
 
 <BlogPostLayout
@@ -21,4 +79,8 @@ const { Content } = await entry.render();
   author={entry.data.author}
 >
   <Content />
+
+  <script type="application/ld+json" set:html={JSON.stringify(articleSchema)} />
+  {faqSchema && <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />}
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
 </BlogPostLayout>

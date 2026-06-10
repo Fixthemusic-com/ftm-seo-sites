@@ -6,6 +6,7 @@ interface Props {
   description?: string;
   ogImage?: string;
   canonicalUrl?: string;
+  ogType?: string;
 }
 
 const {
@@ -13,10 +14,12 @@ const {
   description = siteConfig.description,
   ogImage = siteConfig.ogImage,
   canonicalUrl,
+  ogType = 'website',
 } = Astro.props;
 
 const pageTitle = title === siteConfig.name ? title : `${title} | ${siteConfig.name}`;
 const canonical = canonicalUrl || Astro.url.href;
+const absoluteOgImage = ogImage.startsWith('http') ? ogImage : `https://${siteConfig.domain}${ogImage}`;
 const { theme } = siteConfig;
 ---
 
@@ -33,10 +36,10 @@ const { theme } = siteConfig;
     <link rel="canonical" href={canonical} />
 
     <!-- Open Graph -->
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={ogImage} />
+    <meta property="og:image" content={absoluteOgImage} />
     <meta property="og:url" content={canonical} />
     <meta property="og:site_name" content={siteConfig.name} />
     <meta property="og:locale" content={siteConfig.locale} />
@@ -45,7 +48,7 @@ const { theme } = siteConfig;
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image" content={absoluteOgImage} />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

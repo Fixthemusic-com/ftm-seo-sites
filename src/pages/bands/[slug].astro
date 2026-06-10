@@ -86,14 +86,108 @@ const descHtml = cached?.description_html != null ? cached.description_html : (p
 const setListHtml = cached?.set_list_html != null ? cached.set_list_html : (profile.set_list_rendered || '');
 const faqHtml = cached?.faq_html != null ? cached.faq_html : (profile.faq_rendered || '');
 
-// Schema.org MusicGroup
-const schemaOrg = {
+// Schema.org — MusicGroup with AggregateRating, Offer, reviews
+const bandUrl = `https://${siteConfig.domain}/bands/${band.slug}/`;
+
+// Calculate average rating from reviews
+const ratedReviews = reviews.items.filter((r) => r.rating != null && r.rating > 0);
+const avgRating = ratedReviews.length > 0
+  ? (ratedReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) / ratedReviews.length).toFixed(1)
+  : null;
+
+// Build MusicGroup schema
+const musicGroupSchema: Record<string, any> = {
   '@context': 'https://schema.org',
   '@type': 'MusicGroup',
   name: band.name,
-  description: band.kicker,
-  image: imageUrl,
-  url: `https://${siteConfig.domain}/bands/${band.slug}/`,
+  description: band.kicker || `${band.name} — wedding band available in Italy.`,
+  image: imageUrl || undefined,
+  url: bandUrl,
+  genre: band.tags?.filter((t: any) => typeof t === 'string').slice(0, 5) || undefined,
+  areaServed: { '@type': 'Country', name: 'Italy' },
+};
+
+if (avgRating && band.reviews_count > 0) {
+  musicGroupSchema.aggregateRating = {
+    '@type': 'AggregateRating',
+    ratingValue: avgRating,
+    reviewCount: band.reviews_count,
+    bestRating: 5,
+  };
+}
+
+// Add top 5 reviews as Review items
+if (ratedReviews.length > 0) {
+  musicGroupSchema.review = ratedReviews.slice(0, 5).map((r) => ({
+    '@type': 'Review',
+    author: { '@type': 'Person', name: r.author },
+    datePublished: new Date(r.time_published).toISOString().split('T')[0],
+    reviewBody: r.text.length > 500 ? r.text.slice(0, 500) + '…' : r.text,
+    ...(r.rating ? { reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5 } } : {}),
+  }));
+}
+
+if (!band.hide_price && band.price_low) {
+  musicGroupSchema.makesOffer = {
+    '@type': 'Offer',
+    itemOffered: {
+      '@type': 'Service',
+      name: `${band.name} — Live Wedding Band Performance`,
+      areaServed: { '@type': 'Country', name: 'Italy' },
+    },
+    priceSpecification: {
+      '@type': 'PriceSpecification',
+      priceCurrency: band.currency || 'EUR',
+      ...(band.price_high
+        ? { minPrice: band.price_low, maxPrice: band.price_high }
+        : { price: band.price_low }),
+    },
+  };
+}
+
+// Parse FAQ HTML into FAQPage schema
+let faqPageSchema: Record<string, any> | null = null;
+if (faqHtml) {
+  // FAQ content is typically <h3>Question</h3><p>Answer</p> pairs
+  const faqPairs: { question: string; answer: string }[] = [];
+  const faqRegex = /<h[2-4][^>]*>([\s\S]*?)<\/h[2-4]>\s*([\s\S]*?)(?=<h[2-4]|$)/gi;
+  let match;
+  while ((match = faqRegex.exec(faqHtml)) !== null) {
+    const q = match[1].replace(/<[^>]+>/g, '').trim();
+    const a = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    if (q && a) faqPairs.push({ question: q, answer: a });
+  }
+  // Fallback: try <strong>Question</strong> pattern
+  if (faqPairs.length === 0) {
+    const boldRegex = /<strong[^>]*>([\s\S]*?)<\/strong>\s*([\s\S]*?)(?=<strong|$)/gi;
+    while ((match = boldRegex.exec(faqHtml)) !== null) {
+      const q = match[1].replace(/<[^>]+>/g, '').replace(/\?$/, '').trim() + '?';
+      const a = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+      if (q.length > 5 && a) faqPairs.push({ question: q, answer: a });
+    }
+  }
+  if (faqPairs.length > 0) {
+    faqPageSchema = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqPairs.map((p) => ({
+        '@type': 'Question',
+        name: p.question,
+        acceptedAnswer: { '@type': 'Answer', text: p.answer },
+      })),
+    };
+  }
+}
+
+// BreadcrumbList
+const breadcrumbSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: `https://${siteConfig.domain}/` },
+    { '@type': 'ListItem', position: 2, name: 'Browse', item: `https://${siteConfig.domain}/browse/` },
+    { '@type': 'ListItem', position: 3, name: band.name },
+  ],
 };
 ---
 
@@ -101,7 +195,9 @@ const schemaOrg = {
   title={`${band.name} - Wedding Band in Italy`}
   description={band.kicker || `Book ${band.name} for your Italian wedding. ${band.reviews_count} reviews.`}
 >
-  <script type="application/ld+json" set:html={JSON.stringify(schemaOrg)} />
+  <script type="application/ld+json" set:html={JSON.stringify(musicGroupSchema)} />
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+  {faqPageSchema && <script type="application/ld+json" set:html={JSON.stringify(faqPageSchema)} />}
 
   <article class="max-w-5xl mx-auto px-4 py-10">
     <!-- Header -->

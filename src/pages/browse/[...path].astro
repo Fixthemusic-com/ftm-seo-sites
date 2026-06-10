@@ -115,6 +115,17 @@ const pageDescription = category
   ? `Browse ${totalCount}+ ${category.name} available in Italy. Filter by category, budget, and style.`
   : `Browse ${totalCount}+ wedding bands and entertainment acts available in Italy. Filter by category, budget, and style.`;
 
+// BreadcrumbList schema for browse pages
+const browseBreadcrumb = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: `https://${siteConfig.domain}/` },
+    { '@type': 'ListItem', position: 2, name: 'Browse', item: `https://${siteConfig.domain}/browse/` },
+    ...(category ? [{ '@type': 'ListItem' as const, position: 3, name: category.name }] : []),
+  ],
+};
+
 // Pagination: show max 7 page links (fits mobile without overflow)
 const maxPaginationLinks = 7;
 let startPage = Math.max(1, page - Math.floor(maxPaginationLinks / 2));
@@ -124,16 +135,27 @@ if (endPage - startPage + 1 < maxPaginationLinks) {
 }
 const pageNumbers = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
 
-// Popular locations for search suggestions
-const popularLocations = ['Rome', 'Florence', 'Tuscany', 'Milan', 'Amalfi Coast', 'Lake Como', 'Puglia', 'Venice'];
+// Popular locations for search (label + Google Place ID for geocoded search)
+const popularLocations = [
+  { label: 'Rome', placeId: 'ChIJu46S-ZZhLxMROG5lkwZ3D7k' },
+  { label: 'Florence', placeId: 'ChIJrdbSgKZWKhMRAyrH7xd51ZM' },
+  { label: 'Tuscany', placeId: 'ChIJezSAEFMr1BIRq1kgW7rDxro' },
+  { label: 'Milan', placeId: 'ChIJ53USP0nBhkcRjQ50xhPN_zw' },
+  { label: 'Amalfi Coast', placeId: 'ChIJoXFMw62VOxMR3ExPyRTP6Ew' },
+  { label: 'Lake Como', placeId: 'ChIJ92ILgjI9hEcR4OGY6OrEQD4' },
+  { label: 'Puglia', placeId: 'ChIJ3ZO5jSvkNhMRj3wk-HC6bzk' },
+  { label: 'Venice', placeId: 'ChIJiT3W8dqxfkcRLxCSvfDGo3s' },
+];
 
 // API config for client-side search
 const apiBase = import.meta.env.FTM_API_BASE || 'https://www.fixthemusic.com';
 const regionId = siteConfig.regionId;
 const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.num_bands) > 0).map(cat => cat.slug);
+const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
+  <script type="application/ld+json" set:html={JSON.stringify(browseBreadcrumb)} />
   <section class="py-10">
     <div class="max-w-7xl mx-auto px-4">
       <h1 id="browse-heading" class="font-heading text-3xl md:text-4xl font-bold mb-2">
@@ -169,17 +191,32 @@ const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.
         </div>
         <div class="flex gap-x-1 gap-y-1 mt-2.5 text-sm flex-wrap items-center">
           <span class="text-gray-400 mr-1">Popular:</span>
-          {popularLocations.map((loc, i) => (
-            <>
-              <button
-                class="search-suggestion px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:bg-primary hover:text-white transition-colors cursor-pointer"
-                data-query={loc}
-              >
-                {loc}
-              </button>
-            </>
+          {popularLocations.map((loc) => (
+            <button
+              class="search-suggestion px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:bg-primary hover:text-white transition-colors cursor-pointer"
+              data-query={loc.label}
+              data-place-id={loc.placeId}
+            >
+              {loc.label}
+            </button>
           ))}
         </div>
+      </div>
+
+      <!-- Search location badge (shown when using geocoded location search) -->
+      <div id="location-badge" class="hidden mb-3">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-sm font-medium">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span id="location-badge-text">Searching near <span id="location-badge-name"></span></span>
+          <button id="location-badge-clear" class="ml-1 text-blue-400 hover:text-blue-600 cursor-pointer" aria-label="Clear location search">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </span>
       </div>
 
       <!-- Search status bar (hidden by default, shown during active search) -->
@@ -303,8 +340,9 @@ const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.
     </div>
   </section>
 
-  <!-- Client-side search script -->
-  <script define:vars={{ apiBase, regionId, categorySlugs }}>
+  <!-- Client-side search script with Google Places Autocomplete -->
+  <script define:vars={{ apiBase, regionId, categorySlugs, googleApiKey }}></script>
+  <script>
     (function() {
       const searchInput = document.getElementById('band-search');
       const clearBtn = document.getElementById('search-clear');
@@ -319,76 +357,128 @@ const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.
       const pagination = document.getElementById('pagination');
       const categoryFilters = document.getElementById('category-filters');
       const browseSubtitle = document.getElementById('browse-subtitle');
+      const locationBadge = document.getElementById('location-badge');
+      const locationBadgeName = document.getElementById('location-badge-name');
+      const locationBadgeClear = document.getElementById('location-badge-clear');
 
       let debounceTimer;
       let countAbortController = null;
       let currentAbortController = null;
       let isSearchActive = false;
 
-      // Get active category from the page's data attribute
-      function getActiveCategory() {
-        return categoryFilters?.dataset.currentCategory || '';
+      // Location search state
+      let selectedPlaceId = null;   // Google Place ID when location-selected
+      let selectedPlaceName = null; // Display name for the location badge
+      let autocomplete = null;      // Google Places Autocomplete instance
+      let autocompletePending = false; // true while user is typing before autocomplete resolves
+
+      // --- Google Places Autocomplete setup ---
+
+      function loadGooglePlaces() {
+        if (typeof google !== 'undefined' && google.maps && google.maps.places) {
+          initAutocomplete();
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&libraries=places&callback=__onPlacesLoaded&language=en&loading=async`;
+        script.async = true;
+        window.__onPlacesLoaded = function() {
+          initAutocomplete();
+        };
+        document.head.appendChild(script);
       }
 
-      // Update category pill counts and hide zero-count pills
-      function updateCategoryCounts(counts) {
-        // counts: { '': totalAll, 'cat-slug': N, ... }  — '' = "All" pill
-        document.querySelectorAll('.category-pill').forEach((pill) => {
-          const slug = pill.dataset.category;
-          const countNum = pill.querySelector('.category-count-num');
-          const newCount = counts[slug];
-          if (newCount == null) return; // shouldn't happen
-
-          countNum.textContent = newCount;
-
-          if (newCount === 0) {
-            pill.classList.add('hidden');
-          } else {
-            pill.classList.remove('hidden');
+      function initAutocomplete() {
+        if (autocomplete) return;
+        autocomplete = new google.maps.places.Autocomplete(searchInput, {
+          types: ['(regions)'],
+          fields: ['place_id', 'formatted_address', 'name'],
+          componentRestrictions: { country: 'it' },
+          strictBounds: false,
+        });
+        autocomplete.addListener('place_changed', function() {
+          const place = autocomplete.getPlace();
+          if (place.place_id) {
+            selectedPlaceId = place.place_id;
+            selectedPlaceName = place.formatted_address || place.name || searchInput.value;
+            autocompletePending = false;
+            showLocationBadge(selectedPlaceName);
+            clearTimeout(debounceTimer);
+            performSearch(searchInput.value.trim(), true);
           }
         });
       }
 
-      // Reset category pills to their build-time default counts
+      function showLocationBadge(name) {
+        locationBadgeName.textContent = name;
+        locationBadge.classList.remove('hidden');
+      }
+
+      function hideLocationBadge() {
+        locationBadge.classList.add('hidden');
+        selectedPlaceId = null;
+        selectedPlaceName = null;
+      }
+
+      // --- DOM helpers ---
+
+      function getActiveCategory() {
+        return categoryFilters?.dataset.currentCategory || '';
+      }
+
+      function updateCategoryCounts(counts) {
+        document.querySelectorAll('.category-pill').forEach((pill) => {
+          const slug = pill.dataset.category;
+          const countNum = pill.querySelector('.category-count-num');
+          const newCount = counts[slug];
+          if (newCount == null) return;
+          countNum.textContent = newCount;
+          if (newCount === 0) { pill.classList.add('hidden'); } else { pill.classList.remove('hidden'); }
+        });
+      }
+
       function resetCategoryCounts() {
         document.querySelectorAll('.category-pill').forEach((pill) => {
           const countNum = pill.querySelector('.category-count-num');
           const defaultCount = parseInt(pill.dataset.countDefault, 10);
           countNum.textContent = defaultCount;
-
-          if (defaultCount === 0) {
-            pill.classList.add('hidden');
-          } else {
-            pill.classList.remove('hidden');
-          }
+          if (defaultCount === 0) { pill.classList.add('hidden'); } else { pill.classList.remove('hidden'); }
         });
       }
 
-      // Fetch per-category counts for a search query (lightweight: page_size=1)
-      async function fetchSearchCategoryCounts(query, signal) {
+      // --- Category count fetching (supports both text & location search) ---
+
+      async function fetchSearchCategoryCounts(query, placeId, signal) {
+        const baseParams = { home_region: String(regionId), page_size: '1' };
+        if (placeId) {
+          baseParams.location = placeId;
+        } else {
+          baseParams.search = query;
+        }
+
         const fetches = [
           // "All" (no category filter)
-          fetch(`${apiBase}/api-v2/bands?${new URLSearchParams({ home_region: String(regionId), search: query, page_size: '1' })}`, { signal })
+          fetch(`${apiBase}/api-v2/bands?${new URLSearchParams(baseParams)}`, { signal })
             .then(r => r.json())
             .then(d => ({ slug: '', count: d.count || 0 }))
             .catch(() => ({ slug: '', count: 0 })),
           // Per-category
-          ...categorySlugs.map(slug =>
-            fetch(`${apiBase}/api-v2/bands?${new URLSearchParams({ home_region: String(regionId), search: query, category: slug, page_size: '1' })}`, { signal })
+          ...categorySlugs.map(slug => {
+            const p = { ...baseParams, category: slug };
+            return fetch(`${apiBase}/api-v2/bands?${new URLSearchParams(p)}`, { signal })
               .then(r => r.json())
               .then(d => ({ slug, count: d.count || 0 }))
-              .catch(() => ({ slug, count: 0 }))
-          ),
+              .catch(() => ({ slug, count: 0 }));
+          }),
         ];
         const results = await Promise.all(fetches);
         const counts = {};
-        for (const r of results) {
-          counts[r.slug] = r.count;
-        }
+        for (const r of results) { counts[r.slug] = r.count; }
         return counts;
       }
 
-      // Build a BandCard HTML string matching the Astro component output
+      // --- Band card rendering ---
+
       function renderBandCard(band) {
         const hidePrice = band.hide_price;
         let priceDisplay = '';
@@ -397,46 +487,30 @@ const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.
         } else if (!hidePrice && band.price_low) {
           priceDisplay = `From ${band.currency} ${band.price_low.toLocaleString()}`;
         }
-
         const imageUrl = band.main_photo?.small || band.main_photo?.medium || null;
-        const imagePlaceholder = `<div class="w-full h-full flex items-center justify-center text-gray-400">
-          <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-          </svg>
-        </div>`;
+        const imagePlaceholder = `<div class="w-full h-full flex items-center justify-center text-gray-400"><svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg></div>`;
         const imageHtml = imageUrl
           ? `<img src="${imageUrl}" alt="${band.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />`
           : imagePlaceholder;
-
         const reviewsHtml = band.reviews_count > 0
-          ? `<svg class="w-4 h-4 text-accent" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-            <span class="text-xs text-gray-400">${band.reviews_count} reviews</span>`
+          ? `<svg class="w-4 h-4 text-accent" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><span class="text-xs text-gray-400">${band.reviews_count} reviews</span>`
           : '';
-
-        const priceHtml = priceDisplay
-          ? `<span class="text-sm font-medium text-gray-600">${priceDisplay}</span>`
-          : '';
-
-        const locationHtml = band.location
-          ? `<p class="text-xs text-gray-400 mt-2">${band.location}</p>`
-          : '';
-
+        const priceHtml = priceDisplay ? `<span class="text-sm font-medium text-gray-600">${priceDisplay}</span>` : '';
+        const locationHtml = band.location ? `<p class="text-xs text-gray-400 mt-2">${band.location}</p>` : '';
         return `<a href="/bands/${band.slug}/" class="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
           <div class="aspect-[4/3] overflow-hidden bg-gray-100">${imageHtml}</div>
           <div class="p-4">
             <h3 class="font-heading font-semibold text-lg group-hover:text-primary transition-colors">${band.name}</h3>
             ${band.kicker ? `<p class="text-sm text-gray-500 mt-1 line-clamp-1">${band.kicker}</p>` : ''}
-            <div class="flex items-center justify-between mt-3">
-              <div class="flex items-center gap-1">${reviewsHtml}</div>
-              ${priceHtml}
-            </div>
+            <div class="flex items-center justify-between mt-3"><div class="flex items-center gap-1">${reviewsHtml}</div>${priceHtml}</div>
             ${locationHtml}
           </div>
         </a>`;
       }
 
+      // --- UI state management ---
+
       function showSearchState(state) {
-        // state: 'idle' | 'loading' | 'results' | 'no-results'
         searchLoading.classList.toggle('hidden', state !== 'loading');
         searchNoResults.classList.toggle('hidden', state !== 'no-results');
         searchResultsGrid.classList.toggle('hidden', state !== 'results');
@@ -446,28 +520,33 @@ const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.
         isSearchActive = state !== 'idle';
       }
 
+      // --- Core search ---
+      // placeId: if set, use location-based (geocoded) search; otherwise text search
+
       async function performSearch(query, updateCounts = true) {
-        if (!query.trim()) {
+        if (!query.trim() && !selectedPlaceId) {
           clearSearch();
           return;
         }
 
-        // Show clear button
         clearBtn.classList.remove('hidden');
 
-        // Abort any in-flight request
         if (currentAbortController) currentAbortController.abort();
         currentAbortController = new AbortController();
 
         showSearchState('loading');
 
-        const params = new URLSearchParams({
-          home_region: String(regionId),
-          search: query,
-          page_size: '48',
-        });
+        const params = new URLSearchParams({ home_region: String(regionId), page_size: '48' });
 
-        // Combine with active category if on a category page
+        if (selectedPlaceId) {
+          // Geocoded location search — backend resolves Place ID → Region polygon or geocode point
+          params.set('location', selectedPlaceId);
+          params.set('location_text', selectedPlaceName || query);
+        } else {
+          // Text-based search (band name / keyword)
+          params.set('search', query);
+        }
+
         const activeCategory = getActiveCategory();
         if (activeCategory) params.set('category', activeCategory);
 
@@ -479,31 +558,43 @@ const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.
 
           if (data.items && data.items.length > 0) {
             searchResultsGrid.innerHTML = data.items.map(renderBandCard).join('');
-            const catLabel = activeCategory ? ` in this category` : '';
-            searchStatusText.textContent = `${data.count} act${data.count !== 1 ? 's' : ''} matching "${query}"${catLabel}`;
+            const catLabel = activeCategory ? ' in this category' : '';
+            if (selectedPlaceId) {
+              searchStatusText.textContent = `${data.count} act${data.count !== 1 ? 's' : ''} near "${selectedPlaceName}"${catLabel}`;
+            } else {
+              searchStatusText.textContent = `${data.count} act${data.count !== 1 ? 's' : ''} matching "${query}"${catLabel}`;
+            }
             showSearchState('results');
           } else {
-            noResultsQuery.textContent = query;
-            searchStatusText.textContent = `No results for "${query}"`;
+            noResultsQuery.textContent = selectedPlaceName || query;
+            searchStatusText.textContent = `No results${selectedPlaceId ? ` near "${selectedPlaceName}"` : ` for "${query}"`}`;
             showSearchState('no-results');
           }
 
           // Update URL
           const url = new URL(window.location);
-          url.searchParams.set('search', query);
+          if (selectedPlaceId) {
+            url.searchParams.set('location', selectedPlaceId);
+            url.searchParams.set('location_text', selectedPlaceName || query);
+            url.searchParams.delete('search');
+          } else {
+            url.searchParams.set('search', query);
+            url.searchParams.delete('location');
+            url.searchParams.delete('location_text');
+          }
           history.replaceState(null, '', url);
 
           // Fetch and update category counts in parallel (non-blocking)
           if (updateCounts) {
             if (countAbortController) countAbortController.abort();
             countAbortController = new AbortController();
-            fetchSearchCategoryCounts(query, countAbortController.signal)
+            fetchSearchCategoryCounts(query, selectedPlaceId, countAbortController.signal)
               .then(counts => updateCategoryCounts(counts))
-              .catch(() => {}); // abort errors are fine
+              .catch(() => {});
           }
 
         } catch (err) {
-          if (err.name === 'AbortError') return; // request was superseded
+          if (err.name === 'AbortError') return;
           console.error('Search failed:', err);
           showSearchState('idle');
         }
@@ -514,84 +605,123 @@ const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.
         clearBtn.classList.add('hidden');
         showSearchState('idle');
         searchResultsGrid.innerHTML = '';
+        hideLocationBadge();
         resetCategoryCounts();
 
-        // Abort any in-flight count fetches
-        if (countAbortController) {
-          countAbortController.abort();
-          countAbortController = null;
-        }
+        if (countAbortController) { countAbortController.abort(); countAbortController = null; }
+        if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
 
-        // Remove search param from URL
         const url = new URL(window.location);
         url.searchParams.delete('search');
+        url.searchParams.delete('location');
+        url.searchParams.delete('location_text');
         history.replaceState(null, '', url);
+
+        searchInput.focus();
       }
 
       // --- Event listeners ---
 
-      // Debounced search on input
-      searchInput.addEventListener('input', (e) => {
-        const val = e.target.value;
+      // Text input: clear location selection, debounce text search
+      searchInput.addEventListener('input', function() {
+        // If the user types, invalidate any previously selected location
+        // (Autocomplete's place_changed fires after this when they pick a result)
+        if (selectedPlaceId) {
+          hideLocationBadge();
+        }
+        autocompletePending = true;
+        const val = searchInput.value;
         clearBtn.classList.toggle('hidden', !val);
         clearTimeout(debounceTimer);
         if (!val.trim()) {
           clearSearch();
           return;
         }
-        debounceTimer = setTimeout(() => performSearch(val), 300);
+        debounceTimer = setTimeout(() => {
+          // Only fire text search if autocomplete hasn't resolved a place
+          if (autocompletePending) performSearch(val, true);
+        }, 400);
       });
 
-      // Clear buttons
       clearBtn.addEventListener('click', clearSearch);
       searchStatusClear.addEventListener('click', clearSearch);
 
-      // Popular location suggestions
-      document.querySelectorAll('.search-suggestion').forEach((btn) => {
-        btn.addEventListener('click', () => {
+      // Location badge clear button
+      locationBadgeClear.addEventListener('click', function() {
+        hideLocationBadge();
+        clearSearch();
+      });
+
+      // Popular location buttons — use Place ID for geocoded search
+      document.querySelectorAll('.search-suggestion').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          clearTimeout(debounceTimer);
+          autocompletePending = false;
           const query = btn.dataset.query;
+          const placeId = btn.dataset.placeId;
           searchInput.value = query;
           clearBtn.classList.remove('hidden');
-          performSearch(query);
+
+          if (placeId) {
+            selectedPlaceId = placeId;
+            selectedPlaceName = query;
+            showLocationBadge(query);
+            performSearch(query, true);
+          } else {
+            hideLocationBadge();
+            performSearch(query, true);
+          }
         });
       });
 
-      // Intercept category pill clicks when search is active
-      document.querySelectorAll('.category-pill').forEach((pill) => {
-        pill.addEventListener('click', (e) => {
+      // Category pill clicks during active search
+      document.querySelectorAll('.category-pill').forEach(function(pill) {
+        pill.addEventListener('click', function(e) {
           const query = searchInput.value.trim();
-          if (!query) return; // no search active, let normal navigation happen
-
+          if (!query && !selectedPlaceId) return; // no search active
           e.preventDefault();
-          const clickedCategory = pill.dataset.category;
 
-          // Skip if count is 0 (pill is hidden)
+          const clickedCategory = pill.dataset.category;
           const countNum = pill.querySelector('.category-count-num');
           if (countNum && parseInt(countNum.textContent, 10) === 0) return;
 
-          // Update active pill styling
-          document.querySelectorAll('.category-pill').forEach((p) => {
+          document.querySelectorAll('.category-pill').forEach(function(p) {
             p.classList.remove('bg-primary', 'text-white');
             p.classList.add('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
           });
           pill.classList.remove('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
           pill.classList.add('bg-primary', 'text-white');
 
-          // Update the data attribute so search uses the new category
           categoryFilters.dataset.currentCategory = clickedCategory;
-
-          // Re-run search with new category (no need to re-fetch counts since they don't change)
           performSearch(query, false);
         });
       });
 
-      // On page load, check for ?search= param
+      // --- Init ---
+
+      // Load Google Places API
+      if (googleApiKey) {
+        loadGooglePlaces();
+      }
+
+      // Restore search from URL params on page load
       const urlParams = new URLSearchParams(window.location.search);
+      const initialLocation = urlParams.get('location');
+      const initialLocationText = urlParams.get('location_text');
       const initialSearch = urlParams.get('search');
-      if (initialSearch) {
+
+      if (initialLocation) {
+        // Restore geocoded location search
+        searchInput.value = initialLocationText || '';
+        selectedPlaceId = initialLocation;
+        selectedPlaceName = initialLocationText || '';
+        clearBtn.classList.remove('hidden');
+        showLocationBadge(selectedPlaceName);
+        performSearch(initialLocationText || '', true);
+      } else if (initialSearch) {
         searchInput.value = initialSearch;
         clearBtn.classList.remove('hidden');
-        performSearch(initialSearch);
+        performSearch(initialSearch, true);
       }
     })();
   </script>

@@ -24,6 +24,8 @@ const locations = defineCollection({
     heroTitle: z.string(),
     heroSubtitle: z.string(),
     featuredLocation: z.string(),
+    lat: z.number(),
+    lng: z.number(),
     publishDate: z.date(),
     tags: z.array(z.string()).default([]),
   }),

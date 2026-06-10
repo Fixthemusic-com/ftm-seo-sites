@@ -1,6 +1,7 @@
 import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
 import tailwind from '@astrojs/tailwind';
+import sitemap from '@astrojs/sitemap';
 
 // Site config is loaded from SITE_ID env var
 const siteId = process.env.SITE_ID || 'weddingbandsitaly';
@@ -23,6 +24,7 @@ export default defineConfig({
   integrations: [
     tailwind(),
     mdx(),
+    sitemap(),
   ],
   output: 'static',
   build: {
