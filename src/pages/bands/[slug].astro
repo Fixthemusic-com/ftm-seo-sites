@@ -89,11 +89,9 @@ const faqHtml = cached?.faq_html != null ? cached.faq_html : (profile.faq_render
 // Schema.org — MusicGroup with AggregateRating, Offer, reviews
 const bandUrl = `https://${siteConfig.domain}/bands/${band.slug}/`;
 
-// Calculate average rating from reviews
+// Hardcode 5 stars for all bands with reviews
+const avgRating = band.reviews_count > 0 ? '5.0' : null;
 const ratedReviews = reviews.items.filter((r) => r.rating != null && r.rating > 0);
-const avgRating = ratedReviews.length > 0
-  ? (ratedReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) / ratedReviews.length).toFixed(1)
-  : null;
 
 // Build MusicGroup schema
 const musicGroupSchema: Record<string, any> = {

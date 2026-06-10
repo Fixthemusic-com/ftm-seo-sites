@@ -92,7 +92,7 @@ const schemaOrg = [
       Explore Regions on the Map
     </h2>
     <p class="text-gray-600 text-center mb-8 max-w-2xl mx-auto">
-      Click any marker to explore our wedding band guide for that region.
+      Tap any marker to explore our wedding band guide for that region.
     </p>
     <div id="location-map" class="w-full rounded-xl shadow-lg border border-gray-200 overflow-hidden" style="height: 500px;"></div>
   </section>
@@ -158,120 +158,164 @@ const schemaOrg = [
 
   <script is:inline define:vars={{ mapData, primaryColor: siteConfig.primaryColor, accentColor: siteConfig.accentColor }}>
     document.addEventListener('DOMContentLoaded', function () {
-      const map = L.map('location-map', {
+      // Detect touch device
+      var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+      var map = L.map('location-map', {
         center: [42.5, 12.5],
         zoom: 6,
-        scrollWheelZoom: false,
+        scrollWheelZoom: !isTouchDevice,
         minZoom: 5,
         maxZoom: 10,
+        zoomControl: true,
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      // Stylized tile layer — CartoDB Positron for a clean, elegant look
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        subdomains: 'abcd',
         maxZoom: 19,
       }).addTo(map);
 
-      // Custom gold marker icon
-      const markerIcon = L.divIcon({
-        className: 'custom-marker',
-        html: `<div style="
-          width: 32px; height: 32px;
-          background: ${accentColor};
-          border: 3px solid white;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          display: flex; align-items: center; justify-content: center;
-        "><div style="
-          width: 10px; height: 10px;
-          background: white;
-          border-radius: 50%;
-          transform: rotate(45deg);
-        "></div></div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -32],
-      });
+      // SVG pin marker — solid gold with white center dot
+      function createPinIcon(color, size) {
+        var s = size || 28;
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="' + (s * 24/24) + '" height="' + (s * 36/24) + '">'
+          + '<path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="' + color + '" stroke="white" stroke-width="1.5"/>'
+          + '<circle cx="12" cy="11" r="4.5" fill="white" opacity="0.9"/>'
+          + '<circle cx="12" cy="11" r="2" fill="' + color + '"/>'
+          + '</svg>';
+        return L.divIcon({
+          className: 'custom-pin-marker',
+          html: svg,
+          iconSize: [s * 24/24, s * 36/24],
+          iconAnchor: [s * 12/24, s * 36/24],
+          popupAnchor: [0, -(s * 32/24)],
+        });
+      }
 
-      // Custom hover icon (slightly larger)
-      const markerIconHover = L.divIcon({
-        className: 'custom-marker custom-marker-hover',
-        html: `<div style="
-          width: 38px; height: 38px;
-          background: ${primaryColor};
-          border: 3px solid white;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-          display: flex; align-items: center; justify-content: center;
-        "><div style="
-          width: 12px; height: 12px;
-          background: white;
-          border-radius: 50%;
-          transform: rotate(45deg);
-        "></div></div>`,
-        iconSize: [38, 38],
-        iconAnchor: [19, 38],
-        popupAnchor: [0, -38],
-      });
+      var pinDefault = createPinIcon(accentColor, 30);
+      var pinHover = createPinIcon(primaryColor, 36);
 
-      const bounds = [];
+      var bounds = [];
+      var activeMarker = null;
 
       mapData.forEach(function (loc) {
-        const marker = L.marker([loc.lat, loc.lng], { icon: markerIcon }).addTo(map);
+        var marker = L.marker([loc.lat, loc.lng], { icon: pinDefault }).addTo(map);
 
-        marker.bindPopup(
-          `<div style="font-family: system-ui, sans-serif; text-align: center; min-width: 160px;">
-            <strong style="display: block; font-size: 15px; color: ${primaryColor}; margin-bottom: 4px;">${loc.name}</strong>
-            <span style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 8px;">${loc.featuredLocation}</span>
-            <a href="/locations/${loc.slug}/" style="
-              display: inline-block;
-              background: ${accentColor};
-              color: white;
-              padding: 6px 14px;
-              border-radius: 6px;
-              text-decoration: none;
-              font-size: 13px;
-              font-weight: 600;
-            ">View bands →</a>
-          </div>`,
-          { closeButton: false, className: 'location-popup' }
-        );
+        var popupContent = '<div style="font-family: system-ui, -apple-system, sans-serif; text-align: center; min-width: 170px; padding: 2px 0;">'
+          + '<strong style="display: block; font-size: 15px; color: ' + primaryColor + '; margin-bottom: 3px; letter-spacing: -0.01em;">' + loc.name + '</strong>'
+          + '<span style="display: block; font-size: 12px; color: #9ca3af; margin-bottom: 10px;">' + loc.featuredLocation + '</span>'
+          + '<a href="/locations/' + loc.slug + '/" style="'
+          + 'display: inline-block; background: ' + accentColor + '; color: white;'
+          + 'padding: 7px 18px; border-radius: 8px; text-decoration: none;'
+          + 'font-size: 13px; font-weight: 600; transition: opacity 0.2s;'
+          + '">View bands →</a>'
+          + '</div>';
 
-        marker.on('mouseover', function () {
-          this.setIcon(markerIconHover);
+        marker.bindPopup(popupContent, {
+          closeButton: true,
+          className: 'location-popup',
+          maxWidth: 240,
+          autoPan: true,
+        });
+
+        // Click opens popup on both desktop and mobile
+        marker.on('click', function () {
+          if (activeMarker && activeMarker !== this) {
+            activeMarker.setIcon(pinDefault);
+          }
+          this.setIcon(pinHover);
           this.openPopup();
+          activeMarker = this;
         });
-        marker.on('mouseout', function () {
-          this.setIcon(markerIcon);
-        });
+
+        // Hover effects only on non-touch devices
+        if (!isTouchDevice) {
+          marker.on('mouseover', function () {
+            if (this !== activeMarker) {
+              this.setIcon(pinHover);
+            }
+            this.openPopup();
+          });
+          marker.on('mouseout', function () {
+            if (this !== activeMarker) {
+              this.setIcon(pinDefault);
+            }
+          });
+        }
 
         bounds.push([loc.lat, loc.lng]);
       });
 
+      // Close popups on map click (deselect)
+      map.on('click', function () {
+        if (activeMarker) {
+          activeMarker.setIcon(pinDefault);
+          activeMarker = null;
+        }
+      });
+
       // Fit bounds with padding
       if (bounds.length > 0) {
-        map.fitBounds(bounds, { padding: [40, 40] });
+        map.fitBounds(bounds, { padding: [50, 50] });
       }
     });
   </script>
 
   <style is:inline>
-    .custom-marker { cursor: pointer; }
-    .custom-marker-hover { z-index: 1000 !important; }
+    .custom-pin-marker {
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .custom-pin-marker:hover {
+      transform: scale(1.1);
+    }
     .location-popup .leaflet-popup-content-wrapper {
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-      padding: 4px;
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      padding: 6px 4px;
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+    .location-popup .leaflet-popup-content {
+      margin: 8px 12px;
     }
     .location-popup .leaflet-popup-tip {
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border: 1px solid rgba(0,0,0,0.04);
+    }
+    .location-popup .leaflet-popup-close-button {
+      color: #aaa;
+      font-size: 20px;
+      padding: 4px 8px 0 0;
+    }
+    .location-popup .leaflet-popup-close-button:hover {
+      color: #333;
+    }
+    #location-map .leaflet-control-zoom a {
+      border-radius: 8px !important;
+      width: 32px !important;
+      height: 32px !important;
+      line-height: 32px !important;
+      font-size: 16px !important;
+      color: #1a365d !important;
+    }
+    #location-map .leaflet-control-zoom {
+      border: none !important;
+      border-radius: 10px !important;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
     }
     #location-map .leaflet-control-attribution {
       font-size: 10px;
+      background: rgba(255,255,255,0.8) !important;
+      border-radius: 4px;
     }
     @media (max-width: 768px) {
-      #location-map { height: 380px !important; }
+      #location-map { height: 400px !important; }
+    }
+    @media (max-width: 480px) {
+      #location-map { height: 320px !important; }
     }
   </style>
 </BaseLayout>
