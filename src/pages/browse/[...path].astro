@@ -130,6 +130,7 @@ const popularLocations = ['Rome', 'Florence', 'Tuscany', 'Milan', 'Amalfi Coast'
 // API config for client-side search
 const apiBase = import.meta.env.FTM_API_BASE || 'https://www.fixthemusic.com';
 const regionId = siteConfig.regionId;
+const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.num_bands) > 0).map(cat => cat.slug);
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
@@ -221,6 +222,7 @@ const regionId = siteConfig.regionId;
         <a
           href="/browse/"
           data-category=""
+          data-count-default={totalCount}
           class:list={[
             'category-pill px-4 py-2 rounded-full text-sm font-medium transition-colors',
             !currentCategorySlug
@@ -228,22 +230,26 @@ const regionId = siteConfig.regionId;
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
           ]}
         >
-          All
+          All (<span class="category-count-num">{totalCount}</span>)
         </a>
-        {categories.slice(0, 10).map((cat) => (
-          <a
-            href={browseUrl(cat.slug)}
-            data-category={cat.slug}
-            class:list={[
-              'category-pill px-4 py-2 rounded-full text-sm font-medium transition-colors',
-              currentCategorySlug === cat.slug
-                ? 'bg-primary text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-            ]}
-          >
-            {cat.name} ({categoryCounts[cat.slug] ?? cat.num_bands})
-          </a>
-        ))}
+        {categories.slice(0, 10).filter(cat => (categoryCounts[cat.slug] ?? cat.num_bands) > 0).map((cat) => {
+          const count = categoryCounts[cat.slug] ?? cat.num_bands;
+          return (
+            <a
+              href={browseUrl(cat.slug)}
+              data-category={cat.slug}
+              data-count-default={count}
+              class:list={[
+                'category-pill px-4 py-2 rounded-full text-sm font-medium transition-colors',
+                currentCategorySlug === cat.slug
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+              ]}
+            >
+              {cat.name} (<span class="category-count-num">{count}</span>)
+            </a>
+          );
+        })}
       </div>
 
       <!-- Band grid -->
@@ -298,7 +304,7 @@ const regionId = siteConfig.regionId;
   </section>
 
   <!-- Client-side search script -->
-  <script define:vars={{ apiBase, regionId }}>
+  <script define:vars={{ apiBase, regionId, categorySlugs }}>
     (function() {
       const searchInput = document.getElementById('band-search');
       const clearBtn = document.getElementById('search-clear');
@@ -315,12 +321,71 @@ const regionId = siteConfig.regionId;
       const browseSubtitle = document.getElementById('browse-subtitle');
 
       let debounceTimer;
+      let countAbortController = null;
       let currentAbortController = null;
       let isSearchActive = false;
 
       // Get active category from the page's data attribute
       function getActiveCategory() {
         return categoryFilters?.dataset.currentCategory || '';
+      }
+
+      // Update category pill counts and hide zero-count pills
+      function updateCategoryCounts(counts) {
+        // counts: { '': totalAll, 'cat-slug': N, ... }  — '' = "All" pill
+        document.querySelectorAll('.category-pill').forEach((pill) => {
+          const slug = pill.dataset.category;
+          const countNum = pill.querySelector('.category-count-num');
+          const newCount = counts[slug];
+          if (newCount == null) return; // shouldn't happen
+
+          countNum.textContent = newCount;
+
+          if (newCount === 0) {
+            pill.classList.add('hidden');
+          } else {
+            pill.classList.remove('hidden');
+          }
+        });
+      }
+
+      // Reset category pills to their build-time default counts
+      function resetCategoryCounts() {
+        document.querySelectorAll('.category-pill').forEach((pill) => {
+          const countNum = pill.querySelector('.category-count-num');
+          const defaultCount = parseInt(pill.dataset.countDefault, 10);
+          countNum.textContent = defaultCount;
+
+          if (defaultCount === 0) {
+            pill.classList.add('hidden');
+          } else {
+            pill.classList.remove('hidden');
+          }
+        });
+      }
+
+      // Fetch per-category counts for a search query (lightweight: page_size=1)
+      async function fetchSearchCategoryCounts(query, signal) {
+        const fetches = [
+          // "All" (no category filter)
+          fetch(`${apiBase}/api-v2/bands?${new URLSearchParams({ home_region: String(regionId), search: query, page_size: '1' })}`, { signal })
+            .then(r => r.json())
+            .then(d => ({ slug: '', count: d.count || 0 }))
+            .catch(() => ({ slug: '', count: 0 })),
+          // Per-category
+          ...categorySlugs.map(slug =>
+            fetch(`${apiBase}/api-v2/bands?${new URLSearchParams({ home_region: String(regionId), search: query, category: slug, page_size: '1' })}`, { signal })
+              .then(r => r.json())
+              .then(d => ({ slug, count: d.count || 0 }))
+              .catch(() => ({ slug, count: 0 }))
+          ),
+        ];
+        const results = await Promise.all(fetches);
+        const counts = {};
+        for (const r of results) {
+          counts[r.slug] = r.count;
+        }
+        return counts;
       }
 
       // Build a BandCard HTML string matching the Astro component output
@@ -381,7 +446,7 @@ const regionId = siteConfig.regionId;
         isSearchActive = state !== 'idle';
       }
 
-      async function performSearch(query) {
+      async function performSearch(query, updateCounts = true) {
         if (!query.trim()) {
           clearSearch();
           return;
@@ -428,6 +493,15 @@ const regionId = siteConfig.regionId;
           url.searchParams.set('search', query);
           history.replaceState(null, '', url);
 
+          // Fetch and update category counts in parallel (non-blocking)
+          if (updateCounts) {
+            if (countAbortController) countAbortController.abort();
+            countAbortController = new AbortController();
+            fetchSearchCategoryCounts(query, countAbortController.signal)
+              .then(counts => updateCategoryCounts(counts))
+              .catch(() => {}); // abort errors are fine
+          }
+
         } catch (err) {
           if (err.name === 'AbortError') return; // request was superseded
           console.error('Search failed:', err);
@@ -440,6 +514,13 @@ const regionId = siteConfig.regionId;
         clearBtn.classList.add('hidden');
         showSearchState('idle');
         searchResultsGrid.innerHTML = '';
+        resetCategoryCounts();
+
+        // Abort any in-flight count fetches
+        if (countAbortController) {
+          countAbortController.abort();
+          countAbortController = null;
+        }
 
         // Remove search param from URL
         const url = new URL(window.location);
@@ -484,6 +565,10 @@ const regionId = siteConfig.regionId;
           e.preventDefault();
           const clickedCategory = pill.dataset.category;
 
+          // Skip if count is 0 (pill is hidden)
+          const countNum = pill.querySelector('.category-count-num');
+          if (countNum && parseInt(countNum.textContent, 10) === 0) return;
+
           // Update active pill styling
           document.querySelectorAll('.category-pill').forEach((p) => {
             p.classList.remove('bg-primary', 'text-white');
@@ -495,8 +580,8 @@ const regionId = siteConfig.regionId;
           // Update the data attribute so search uses the new category
           categoryFilters.dataset.currentCategory = clickedCategory;
 
-          // Re-run search with new category
-          performSearch(query);
+          // Re-run search with new category (no need to re-fetch counts since they don't change)
+          performSearch(query, false);
         });
       });
 
