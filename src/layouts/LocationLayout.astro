@@ -18,6 +18,8 @@ interface Props {
   totalBands: number;
   venues?: VenueListItem[];
   regionReviews?: { items: VenueReview[]; count: number };
+  leadHtml?: string;
+  bodyHtml?: string;
 }
 
 const {
@@ -31,7 +33,17 @@ const {
   totalBands,
   venues = [],
   regionReviews = { items: [], count: 0 },
+  leadHtml = '',
+  bodyHtml = '',
 } = Astro.props;
+
+// Pick the best review quote for the hero (highest rating first, then first non-null text)
+const heroReview = regionReviews.items
+  .filter(r => r.text && r.text.length > 40)
+  .sort((a, b) => ((b.rating ?? 0) - (a.rating ?? 0)))[0];
+const heroQuote = heroReview?.text.length > 180
+  ? heroReview.text.slice(0, 177) + '…'
+  : heroReview?.text;
 
 // Schema.org structured data
 const schemaOrg = [
@@ -106,31 +118,62 @@ const schemaOrg = [
       <p class="text-lg md:text-xl opacity-90 mb-6 max-w-2xl mx-auto">
         {heroSubtitle}
       </p>
+
+      {heroQuote && (
+        <blockquote class="italic opacity-90 max-w-2xl mx-auto mb-6 text-base md:text-lg font-serif">
+          &ldquo;{heroQuote}&rdquo;
+          <div class="text-sm not-italic mt-3 opacity-75">
+            — {heroReview.author}
+            {heroReview.band_slug && (
+              <>
+                {' '}• <a href={`/bands/${heroReview.band_slug}/`} class="underline hover:opacity-100">{heroReview.band_name}</a>
+              </>
+            )}
+            {heroReview.venue_slug && (
+              <>
+                {' '}• <a href={`/venues/${heroReview.venue_slug}/`} class="underline hover:opacity-100">{heroReview.venue_name?.split(',')[0]}</a>
+              </>
+            )}
+          </div>
+        </blockquote>
+      )}
+
       <p class="text-sm opacity-70">
         {totalBands} verified acts available in {regionName}
       </p>
     </div>
   </section>
 
-  <!-- Article content -->
-  <article class="max-w-4xl mx-auto px-4 sm:px-6 py-12">
-    <div class="prose prose-lg max-w-none">
-      <slot />
+  <!-- Sticky mini-TOC -->
+  <div class="sticky top-16 z-30 bg-white/95 backdrop-blur shadow-sm border-b border-gray-100">
+    <div class="max-w-4xl mx-auto px-4 py-2 flex gap-2 overflow-x-auto text-sm whitespace-nowrap scrollbar-hide">
+      <a href="#lead" class="text-primary hover:underline">About {regionName}</a>
+      {venues.length > 0 && <a href="#venues" class="text-gray-600 hover:text-primary">Venues</a>}
+      {regionReviews.items.length > 0 && <a href="#reviews" class="text-gray-600 hover:text-primary">Reviews</a>}
+      {bands.length > 0 && <a href="#bands" class="text-gray-600 hover:text-primary">Bands</a>}
+      <a href="#budget" class="text-gray-600 hover:text-primary">Budget</a>
+      <a href="#faq" class="text-gray-600 hover:text-primary">FAQ</a>
+      <a href="/enquire/" class="ml-auto bg-primary text-white px-3 py-1 rounded-md font-semibold hover:opacity-90 flex-shrink-0">Get a quote</a>
     </div>
+  </div>
+
+  <!-- Article lead (top ~600 words) -->
+  <article class="max-w-4xl mx-auto px-4 sm:px-6 py-12" id="lead">
+    <div class="prose prose-lg max-w-none" set:html={leadHtml} />
   </article>
 
-  <!-- Popular Venues in this region -->
+  <!-- Popular Venues -->
   {venues.length > 0 && (
-    <section class="bg-gray-50 py-12">
+    <section class="bg-gray-50 py-12" id="venues">
       <div class="max-w-7xl mx-auto px-4">
         <PopularVenues venues={venues} regionName={regionName} maxItems={6} regionSlug={region} />
       </div>
     </section>
   )}
 
-  <!-- Venue Reviews from this region -->
+  <!-- Venue Reviews -->
   {regionReviews.items.length > 0 && (
-    <section class="bg-white py-12">
+    <section class="bg-white py-12" id="reviews">
       <div class="max-w-4xl mx-auto px-4">
         <VenueReviews
           reviews={regionReviews.items}
@@ -142,9 +185,9 @@ const schemaOrg = [
     </section>
   )}
 
-  <!-- Featured Bands from this region -->
+  <!-- Featured Bands -->
   {bands.length > 0 && (
-    <section class="bg-white py-16">
+    <section class="bg-gray-50 py-16" id="bands">
       <div class="max-w-7xl mx-auto px-4">
         <h2 class="font-heading text-3xl font-bold text-center mb-4">
           Featured Bands in {regionName}
@@ -167,6 +210,19 @@ const schemaOrg = [
         </div>
       </div>
     </section>
+  )}
+
+  <!-- Collapsed article body (budget, SIAE, traditions, FAQ) -->
+  {bodyHtml && (
+    <details class="max-w-4xl mx-auto px-4 sm:px-6 py-8 group" id="more">
+      <summary class="cursor-pointer list-none flex items-center justify-between py-4 px-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition font-heading text-xl font-semibold">
+        <span>Read the full {regionName} wedding guide</span>
+        <span class="text-primary text-sm group-open:rotate-180 transition-transform">▼</span>
+      </summary>
+      <article class="prose prose-lg max-w-none mt-8" id="body">
+        <div set:html={bodyHtml} />
+      </article>
+    </details>
   )}
 
   <!-- CTA -->
@@ -195,3 +251,13 @@ const schemaOrg = [
     </div>
   </section>
 </BaseLayout>
+
+<style>
+  /* Hide scrollbar on the TOC strip while still allowing horizontal scroll */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Native <details> marker override */
+  details > summary { list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+</style>

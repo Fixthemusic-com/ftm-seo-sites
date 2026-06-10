@@ -5,6 +5,9 @@ import { getBands, getVenues, getRegionVenueReviews } from '../../lib/api';
 import { siteConfig } from '../../lib/config';
 import type { VenueListItem } from '../../lib/types';
 import type { VenueReviewList } from '../../lib/api';
+import { unified } from 'unified';
+import remarkParse from 'remark-parse';
+import remarkHtml from 'remark-html';
 
 export async function getStaticPaths() {
   const locations = await getCollection('locations');
@@ -15,8 +18,18 @@ export async function getStaticPaths() {
 }
 
 const { location } = Astro.props;
-const { Content } = await location.render();
 const { data } = location;
+
+// Split MDX body at the 3rd h2: lead (shown above reviews/bands) vs body (collapsed below)
+const rawBody = location.body || '';
+const headings = [...rawBody.matchAll(/^## /gm)];
+const splitAt = headings.length >= 3 ? headings[2].index : rawBody.length;
+const leadMd = rawBody.slice(0, splitAt).trim();
+const bodyMd = rawBody.slice(splitAt).trim();
+
+const processor = unified().use(remarkParse).use(remarkHtml);
+const leadHtml = String(await processor.process(leadMd));
+const bodyHtml = bodyMd ? String(await processor.process(bodyMd)) : '';
 
 // Fetch bands for this location's sub-region
 let bands: any[] = [];
@@ -65,6 +78,6 @@ try {
   totalBands={totalBands}
   venues={venues}
   regionReviews={regionReviews}
->
-  <Content />
-</LocationLayout>
+  leadHtml={leadHtml}
+  bodyHtml={bodyHtml}
+/>
