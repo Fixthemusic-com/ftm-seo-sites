@@ -341,8 +341,7 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
   </section>
 
   <!-- Client-side search script with Google Places Autocomplete -->
-  <script define:vars={{ apiBase, regionId, categorySlugs, googleApiKey }}></script>
-  <script>
+  <script define:vars={{ apiBase, regionId, categorySlugs, googleApiKey }}>
     (function() {
       const searchInput = document.getElementById('band-search');
       const clearBtn = document.getElementById('search-clear');
