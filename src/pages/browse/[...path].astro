@@ -115,8 +115,8 @@ const pageDescription = category
   ? `Browse ${totalCount}+ ${category.name} available in Italy. Filter by category, budget, and style.`
   : `Browse ${totalCount}+ wedding bands and entertainment acts available in Italy. Filter by category, budget, and style.`;
 
-// Pagination: show max 10 page links centered around current page
-const maxPaginationLinks = 10;
+// Pagination: show max 7 page links (fits mobile without overflow)
+const maxPaginationLinks = 7;
 let startPage = Math.max(1, page - Math.floor(maxPaginationLinks / 2));
 let endPage = Math.min(numPages, startPage + maxPaginationLinks - 1);
 if (endPage - startPage + 1 < maxPaginationLinks) {
@@ -265,11 +265,11 @@ const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.
 
       <!-- Pagination -->
       {numPages > 1 && (
-        <nav id="pagination" class="mt-12 flex justify-center items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2" aria-label="Pagination">
+        <nav id="pagination" class="mt-12 flex justify-center items-center gap-1.5 sm:gap-2 flex-wrap" aria-label="Pagination">
           {page > 1 && (
             <a
               href={browseUrl(currentCategorySlug || undefined, page - 1)}
-              class="px-2.5 sm:px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors shrink-0"
+              class="px-2.5 sm:px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
               aria-label="Previous page"
             >
               &larr;
@@ -279,7 +279,7 @@ const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.
             <a
               href={browseUrl(currentCategorySlug || undefined, p)}
               class:list={[
-                'px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors shrink-0',
+                'w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors',
                 p === page
                   ? 'bg-primary text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
@@ -292,7 +292,7 @@ const categorySlugs = categories.filter(cat => (categoryCounts[cat.slug] ?? cat.
           {page < numPages && (
             <a
               href={browseUrl(currentCategorySlug || undefined, page + 1)}
-              class="px-2.5 sm:px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors shrink-0"
+              class="px-2.5 sm:px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
               aria-label="Next page"
             >
               &rarr;
