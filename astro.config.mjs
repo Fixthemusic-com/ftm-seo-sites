@@ -1,7 +1,28 @@
 import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
 import tailwind from '@astrojs/tailwind';
-import sitemap from '@astrojs/sitemap';
+import sitemapIntegration from '@astrojs/sitemap';
+
+// Wrap sitemap to catch the known bug with empty dynamic routes
+// (Cannot read properties of undefined (reading 'reduce'))
+function safeSitemap(opts) {
+  const integration = sitemapIntegration(opts);
+  // Find the astro:build:done hook and wrap it with error handling
+  const originalHooks = integration.hooks;
+  integration.hooks = {
+    ...originalHooks,
+    'astro:build:done': async (...args) => {
+      try {
+        if (originalHooks['astro:build:done']) {
+          await originalHooks['astro:build:done'](...args);
+        }
+      } catch (e) {
+        console.warn(`[@astrojs/sitemap] Skipped due to error: ${e.message}`);
+      }
+    },
+  };
+  return integration;
+}
 
 // Site config is loaded from SITE_ID env var
 const siteId = process.env.SITE_ID || 'weddingbandsitaly';
@@ -24,7 +45,9 @@ export default defineConfig({
   integrations: [
     tailwind(),
     mdx(),
-    sitemap(),
+    safeSitemap({
+      filter: (page) => !page.includes('/venues/') || page === new URL('/venues/', config.site).href,
+    }),
   ],
   output: 'static',
   trailingSlash: 'always',
