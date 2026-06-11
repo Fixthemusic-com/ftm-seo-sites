@@ -6,6 +6,7 @@ import { siteConfig } from '../../lib/config';
 import type { VenueListItem } from '../../lib/types';
 import type { VenueReviewList } from '../../lib/api';
 import { unified } from 'unified';
+import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import remarkHtml from 'remark-html';
 
@@ -32,7 +33,7 @@ const splitAt = headings.length >= 3 ? headings[2].index : rawBody.length;
 const leadMd = rawBody.slice(0, splitAt).trim();
 const bodyMd = rawBody.slice(splitAt).trim();
 
-const processor = unified().use(remarkParse).use(remarkHtml);
+const processor = unified().use(remarkParse).use(remarkGfm).use(remarkHtml);
 const leadHtml = String(await processor.process(leadMd));
 const bodyHtml = bodyMd ? String(await processor.process(bodyMd)) : '';
 
