@@ -7,7 +7,7 @@ import type { VenueListItem } from '../../lib/types';
 
 let venues: VenueListItem[] = [];
 try {
-  venues = await getVenues({ min_bookings: 5, limit: 500 });
+  venues = await getVenues({ region_id: siteConfig.regionId, min_bookings: 1, limit: 3000 });
 } catch (err: any) {
   console.warn(`Venues API unavailable (${err?.message || err}), showing empty venues page`);
 }

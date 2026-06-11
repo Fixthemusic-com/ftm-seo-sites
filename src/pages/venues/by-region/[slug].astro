@@ -26,7 +26,7 @@ const regionId = loc.data.regionId;
 
 let allVenues: VenueListItem[] = [];
 try {
-  allVenues = await getVenues({ region_id: regionId, min_bookings: 3, limit: 500 });
+  allVenues = await getVenues({ region_id: regionId, min_bookings: 1, limit: 1000 });
 } catch (e) {
   console.warn(`Could not fetch venues for ${regionName}:`, e);
 }
