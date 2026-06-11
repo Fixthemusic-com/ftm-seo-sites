@@ -16,14 +16,12 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         site:
           - id: weddingbandsitaly
             project: weddingbandsitaly
             token_secret: FTM_SITE_TOKEN_WBI
-          - id: weddingmusicbanditaly
-            project: weddingmusicbanditaly
-            token_secret: FTM_SITE_TOKEN_WMBI
 
     steps:
       - uses: actions/checkout@v4
