@@ -33,9 +33,20 @@ const {
   totalBands,
   venues = [],
   regionReviews = { items: [], count: 0 },
-  leadHtml = '',
-  bodyHtml = '',
+  leadHtml: rawLeadHtml = '',
+  bodyHtml: rawBodyHtml = '',
 } = Astro.props;
+
+// Inject anchor IDs into bodyHtml so the mini-TOC #budget and #faq links work.
+// Remark-html strips heading IDs from markdown; we re-inject them via regex on the rendered HTML.
+const bodyHtml = rawBodyHtml
+  .replace(/<h2>(Budget Guide[^<]*)<\/h2>/i, '<h2 id="budget">$1</h2>')
+  .replace(/<h2>(Frequently Asked[^<]*)<\/h2>/i, '<h2 id="faq">$1</h2>');
+
+// Same treatment for leadHtml in case those headings end up in the lead section
+const leadHtml = rawLeadHtml
+  .replace(/<h2>(Budget Guide[^<]*)<\/h2>/i, '<h2 id="budget">$1</h2>')
+  .replace(/<h2>(Frequently Asked[^<]*)<\/h2>/i, '<h2 id="faq">$1</h2>');
 
 // Schema.org structured data
 const schemaOrg = [
@@ -155,17 +166,21 @@ if (faqItems.length > 0) {
   </section>
 
   <!-- Sticky mini-TOC -->
-  <div class="sticky top-0 z-30 bg-white/95 backdrop-blur shadow-sm border-b border-gray-100">
-    <div class="max-w-4xl mx-auto px-4 py-2 flex gap-2 overflow-x-auto text-sm whitespace-nowrap scrollbar-hide">
-      <a href="#lead" class="text-primary hover:underline">About {regionName}</a>
-      {venues.length > 0 && <a href="#venues" class="text-gray-600 hover:text-primary">Venues</a>}
-      {regionReviews.items.length > 0 && <a href="#reviews" class="text-gray-600 hover:text-primary">Reviews</a>}
-      {bands.length > 0 && <a href="#bands" class="text-gray-600 hover:text-primary">Bands</a>}
-      <a href="#budget" class="text-gray-600 hover:text-primary">Budget</a>
-      <a href="#faq" class="text-gray-600 hover:text-primary">FAQ</a>
-      <a href="/enquire/" class="ml-auto bg-primary text-white px-3 py-1 rounded-md font-semibold hover:opacity-90 flex-shrink-0">Get a quote</a>
+  <nav class="mini-toc sticky top-0 z-30 bg-white/95 backdrop-blur shadow-sm border-b border-gray-100" aria-label="Page sections">
+    <div class="relative max-w-4xl mx-auto">
+      <!-- Right-edge fade hint for mobile overflow -->
+      <div class="pointer-events-none absolute right-0 top-0 h-full w-6 bg-gradient-to-l from-white/90 to-transparent z-10 md:hidden"></div>
+      <div class="max-w-4xl mx-auto px-4 py-2 flex gap-3 md:gap-4 overflow-x-auto text-sm whitespace-nowrap scrollbar-hide">
+        <a href="#lead" class="text-primary font-medium hover:underline shrink-0">About {regionName}</a>
+        {venues.length > 0 && <a href="#venues" class="text-gray-600 hover:text-primary shrink-0">Venues</a>}
+        {regionReviews.items.length > 0 && <a href="#reviews" class="text-gray-600 hover:text-primary shrink-0">Reviews</a>}
+        {bands.length > 0 && <a href="#bands" class="text-gray-600 hover:text-primary shrink-0">Bands</a>}
+        {bodyHtml && <a href="#budget" class="text-gray-600 hover:text-primary shrink-0">Budget</a>}
+        {bodyHtml && <a href="#faq" class="text-gray-600 hover:text-primary shrink-0">FAQ</a>}
+        <a href="/enquire/" class="ml-auto bg-primary text-white px-3 py-1 rounded-md font-semibold hover:opacity-90 shrink-0">Get a quote</a>
+      </div>
     </div>
-  </div>
+  </nav>
 
   <!-- Article lead (top ~600 words) -->
   <article class="max-w-4xl mx-auto px-4 sm:px-6 py-12" id="lead">
@@ -270,4 +285,34 @@ if (faqItems.length > 0) {
   /* Native <details> marker override */
   details > summary { list-style: none; }
   details > summary::-webkit-details-marker { display: none; }
+
+  /* Ensure all anchor targets clear the sticky TOC bar */
+  #lead, #venues, #reviews, #bands, #budget, #faq, #more {
+    scroll-margin-top: 3rem;
+  }
 </style>
+
+<script>
+  // Mini-TOC: open collapsed <details> before scrolling to anchors inside it
+  document.querySelectorAll('.mini-toc a[href^="#"]').forEach((link) => {
+    link.addEventListener('click', (e) => {
+      const id = link.getAttribute('href')?.slice(1);
+      if (!id) return;
+      const target = document.getElementById(id) || document.querySelector(`[id="${id}"]`);
+      if (!target) return;
+
+      // If target is inside a collapsed <details>, open it first
+      const details = target.closest('details');
+      if (details && !details.open) {
+        details.open = true;
+      }
+
+      // Scroll after a micro-tick to let the browser layout the opened <details>
+      e.preventDefault();
+      requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.pushState(null, '', `#${id}`);
+      });
+    });
+  });
+</script>
