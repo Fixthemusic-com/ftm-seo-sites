@@ -9,7 +9,7 @@ export async function getStaticPaths() {
   const PAGE_SIZE = 24;
   const MAX_API_PAGES = 50; // API enforces a max page limit
   const [firstPage, categories] = await Promise.all([
-    getBands({ home_region: siteConfig.regionId, page_size: PAGE_SIZE }),
+    getBands({ booked_in: siteConfig.regionId, page_size: PAGE_SIZE }),
     getCategories(),
   ]);
 
@@ -32,12 +32,12 @@ export async function getStaticPaths() {
   // --- Category pages (fetch page 1 of each in parallel) ---
   const catResults = await Promise.all(
     categories.map((cat) =>
-      getBands({ home_region: siteConfig.regionId, category: cat.slug, page_size: PAGE_SIZE })
+      getBands({ booked_in: siteConfig.regionId, category: cat.slug, page_size: PAGE_SIZE })
         .then((result) => ({ cat, result }))
     )
   );
 
-  // Build a map of category slug -> actual count (filtered by home_region)
+  // Build a map of category slug -> actual count (filtered by booked_in)
   const categoryCounts: Record<string, number> = {};
   for (const { cat, result } of catResults) {
     categoryCounts[cat.slug] = result.count;
@@ -88,7 +88,7 @@ if (prefetchedBands) {
   bands = prefetchedBands;
 } else {
   const result = await getBands({
-    home_region: siteConfig.regionId,
+    booked_in: siteConfig.regionId,
     category: category?.slug,
     page,
     page_size: PAGE_SIZE,
@@ -636,7 +636,7 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
       // --- Category count fetching (supports both text & location search) ---
 
       async function fetchSearchCategoryCounts(query, placeId, signal) {
-        const baseParams = { home_region: String(regionId), page_size: '1' };
+        const baseParams = { booked_in: String(regionId), page_size: '1' };
         if (placeId) {
           baseParams.location = placeId;
         } else {
@@ -723,7 +723,7 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
 
         showSearchState('loading');
 
-        const params = new URLSearchParams({ home_region: String(regionId), page_size: '48' });
+        const params = new URLSearchParams({ booked_in: String(regionId), page_size: '48' });
 
         if (selectedPlaceId) {
           // Geocoded location search — backend resolves Place ID → Region polygon or geocode point
