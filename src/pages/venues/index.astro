@@ -5,7 +5,12 @@ import { getVenues } from '../../lib/api';
 import { venueShortName, venueTown } from '../../lib/types';
 import type { VenueListItem } from '../../lib/types';
 
-const venues: VenueListItem[] = await getVenues({ min_bookings: 5, limit: 500 });
+let venues: VenueListItem[] = [];
+try {
+  venues = await getVenues({ min_bookings: 5, limit: 500 });
+} catch (err: any) {
+  console.warn(`Venues API unavailable (${err?.message || err}), showing empty venues page`);
+}
 
 // Group by province/admin region
 const regionGroups: Record<string, VenueListItem[]> = {};
