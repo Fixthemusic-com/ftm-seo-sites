@@ -13,6 +13,11 @@ Build a `PlannerProfile` model (parallel to `VenueProfile`) that extracts struct
 - EnquiryMessage.kind: `INCOMING = 'IN'`, `OUTGOING = 'OU'`, `AUTOMATED = 'AU'`
 - EnquiryMessage links through **EnquiryBand** (not directly to Enquiry): `EnquiryMessage → EnquiryBand → Enquiry`
 
+- `Enquiry.date` (DateField, nullable) — the event date. NOT `event_date`.
+- No `converted` boolean — Enquiry has a `state` CharField: 'not_finished', 'getting_offers', 'choosing_offers', 'deposit_paid', 'finished', 'cancelled'. Confirmed bookings have `state in ('deposit_paid', 'finished')`.
+- `Enquiry.location_place_id` (CharField, nullable) — Google Places place_id string, indexed.
+- `Enquiry.conversion_date` (DateTimeField, nullable) — when the enquiry converted.
+
 ### Planner Email Extraction (CRITICAL)
 The planner's email comes from `EnquiryMessage.from_address` where `kind='IN'` (INCOMING).
 Do NOT use `enquiry.user.email` — that's the account registration address, which may differ

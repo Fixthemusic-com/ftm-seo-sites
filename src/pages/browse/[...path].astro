@@ -207,6 +207,17 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
     .autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
       background: rgba(0,0,0,0.2);
     }
+    .ac-item.ac-highlighted .ac-chevron {
+      color: var(--color-primary, #1e3a8a);
+      opacity: 1;
+    }
+    .ac-chevron {
+      opacity: 0;
+      transition: all 0.15s ease;
+    }
+    .ac-item:hover .ac-chevron {
+      opacity: 1;
+    }
   </style>
   <section class="py-10">
     <div class="max-w-7xl mx-auto px-4">
