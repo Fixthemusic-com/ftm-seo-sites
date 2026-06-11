@@ -9,7 +9,7 @@ export async function getStaticPaths() {
   const PAGE_SIZE = 24;
   const MAX_API_PAGES = 50; // API enforces a max page limit
   const [firstPage, categories] = await Promise.all([
-    getBands({ booked_in: siteConfig.regionId, page_size: PAGE_SIZE }),
+    getBands({ home_region: siteConfig.regionId, page_size: PAGE_SIZE }),
     getCategories(),
   ]);
 
@@ -32,12 +32,12 @@ export async function getStaticPaths() {
   // --- Category pages (fetch page 1 of each in parallel) ---
   const catResults = await Promise.all(
     categories.map((cat) =>
-      getBands({ booked_in: siteConfig.regionId, category: cat.slug, page_size: PAGE_SIZE })
+      getBands({ home_region: siteConfig.regionId, category: cat.slug, page_size: PAGE_SIZE })
         .then((result) => ({ cat, result }))
     )
   );
 
-  // Build a map of category slug -> actual count (filtered by booked_in)
+  // Build a map of category slug -> actual count (filtered by home_region)
   const categoryCounts: Record<string, number> = {};
   for (const { cat, result } of catResults) {
     categoryCounts[cat.slug] = result.count;
@@ -88,7 +88,7 @@ if (prefetchedBands) {
   bands = prefetchedBands;
 } else {
   const result = await getBands({
-    booked_in: siteConfig.regionId,
+    home_region: siteConfig.regionId,
     category: category?.slug,
     page,
     page_size: PAGE_SIZE,
@@ -156,6 +156,58 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
 
 <BaseLayout title={pageTitle} description={pageDescription}>
   <script type="application/ld+json" set:html={JSON.stringify(browseBreadcrumb)} />
+  <style>
+    /* Autocomplete dropdown */
+    .autocomplete-dropdown {
+      box-shadow:
+        0 4px 6px -1px rgba(0, 0, 0, 0.05),
+        0 20px 40px -8px rgba(0, 0, 0, 0.12),
+        0 0 0 1px rgba(0, 0, 0, 0.03);
+      animation: ac-slide-in 0.15s ease-out;
+    }
+    @keyframes ac-slide-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .ac-item {
+      position: relative;
+    }
+    .ac-item::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 3.25rem;
+      right: 1rem;
+      height: 1px;
+      background: linear-gradient(to right, rgba(0,0,0,0.06), rgba(0,0,0,0.03), transparent);
+    }
+    .ac-item:last-child::after {
+      display: none;
+    }
+    .ac-item.ac-highlighted {
+      background: linear-gradient(to right, rgba(var(--color-primary-rgb, 30, 58, 138), 0.04), rgba(var(--color-primary-rgb, 30, 58, 138), 0.02));
+    }
+    .ac-item.ac-highlighted .ac-pin-icon {
+      background: rgba(var(--color-primary-rgb, 30, 58, 138), 0.1);
+      color: var(--color-primary, #1e3a8a);
+    }
+    .ac-item .ac-pin-icon {
+      transition: all 0.15s ease;
+    }
+    .autocomplete-dropdown::-webkit-scrollbar {
+      width: 6px;
+    }
+    .autocomplete-dropdown::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .autocomplete-dropdown::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,0.1);
+      border-radius: 3px;
+    }
+    .autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+      background: rgba(0,0,0,0.2);
+    }
+  </style>
   <section class="py-10">
     <div class="max-w-7xl mx-auto px-4">
       <h1 id="browse-heading" class="font-heading text-3xl md:text-4xl font-bold mb-2">
@@ -177,6 +229,7 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
             type="search"
             placeholder="Search by location or band name..."
             autocomplete="off"
+            spellcheck="false"
             class="w-full pl-11 pr-10 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-shadow"
           />
           <button
@@ -188,6 +241,20 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+          <!-- Custom autocomplete dropdown -->
+          <div id="autocomplete-dropdown" class="hidden absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl border border-gray-100 z-50 overflow-hidden max-h-80 overflow-y-auto autocomplete-dropdown">
+            <div id="autocomplete-results"></div>
+            <div id="autocomplete-empty" class="hidden px-5 py-8 text-center">
+              <div class="w-10 h-10 mx-auto mb-3 rounded-full bg-gray-50 flex items-center justify-center">
+                <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <p class="text-sm font-medium text-gray-500">No locations found</p>
+              <p class="text-xs text-gray-400 mt-1">Press Enter to search band names</p>
+            </div>
+          </div>
         </div>
         <div class="flex gap-x-1 gap-y-1 mt-2.5 text-sm flex-wrap items-center">
           <span class="text-gray-400 mr-1">Popular:</span>
@@ -365,47 +432,157 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
       let currentAbortController = null;
       let isSearchActive = false;
 
-      // Location search state
-      let selectedPlaceId = null;   // Google Place ID when location-selected
-      let selectedPlaceName = null; // Display name for the location badge
-      let autocomplete = null;      // Google Places Autocomplete instance
-      let autocompletePending = false; // true while user is typing before autocomplete resolves
+      // Location search state — custom autocomplete
+      const acDropdown = document.getElementById('autocomplete-dropdown');
+      const acResults = document.getElementById('autocomplete-results');
+      const acEmpty = document.getElementById('autocomplete-empty');
+      let selectedPlaceId = null;
+      let selectedPlaceName = null;
+      let autocompletePending = false;
+      let acSessionToken = null;
+      let acDebounceTimer = null;
+      let acHighlightedIndex = -1;
+      let acLastQuery = '';
+      let googleReady = false;
 
       // --- Google Places Autocomplete setup ---
 
+      // --- Google Places v2 Autocomplete (custom dropdown) ---
+
       function loadGooglePlaces() {
         if (typeof google !== 'undefined' && google.maps && google.maps.places) {
-          initAutocomplete();
+          googleReady = true;
+          acSessionToken = new google.maps.places.AutocompleteSessionToken();
           return;
         }
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&libraries=places&callback=__onPlacesLoaded&language=en&loading=async`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=***&libraries=places&callback=__onPlacesLoaded&language=en&loading=async`;
         script.async = true;
         window.__onPlacesLoaded = function() {
-          initAutocomplete();
+          googleReady = true;
+          acSessionToken = new google.maps.places.AutocompleteSessionToken();
         };
         document.head.appendChild(script);
       }
 
-      function initAutocomplete() {
-        if (autocomplete) return;
-        autocomplete = new google.maps.places.Autocomplete(searchInput, {
-          types: ['(regions)'],
-          fields: ['place_id', 'formatted_address', 'name'],
-          componentRestrictions: { country: 'it' },
-          strictBounds: false,
-        });
-        autocomplete.addListener('place_changed', function() {
-          const place = autocomplete.getPlace();
-          if (place.place_id) {
-            selectedPlaceId = place.place_id;
-            selectedPlaceName = place.formatted_address || place.name || searchInput.value;
-            autocompletePending = false;
-            showLocationBadge(selectedPlaceName);
-            clearTimeout(debounceTimer);
-            performSearch(searchInput.value.trim(), true);
+      async function fetchAutocompleteSuggestions(query) {
+        if (!googleReady || !query.trim() || query.length < 2) {
+          hideAutocompleteDropdown();
+          return;
+        }
+
+        try {
+          const response = await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+            input: query,
+            sessionToken: acSessionToken,
+            includedRegionCodes: ['IT'],
+            includedPrimaryTypeCategory: { primaryType: '(regions)', categories: [] },
+            language: 'en',
+            // Request up to 5 results (API max for custom UI)
+          });
+
+          const suggestions = response.suggestions || [];
+
+          if (suggestions.length === 0) {
+            showAutocompleteEmpty();
+            return;
           }
+
+          renderAutocompleteDropdown(suggestions);
+        } catch (err) {
+          console.error('Autocomplete fetch failed:', err);
+          hideAutocompleteDropdown();
+        }
+      }
+
+      function renderAutocompleteDropdown(suggestions) {
+        acResults.innerHTML = '';
+        acHighlightedIndex = -1;
+
+        suggestions.forEach((suggestion, index) => {
+          const placeId = suggestion.placePrediction?.placeId;
+          const mainText = suggestion.placePrediction?.text?.text || '';
+          const secondaryText = suggestion.placePrediction?.structuredFormat?.secondaryText?.text || '';
+
+          if (!placeId) return;
+
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'ac-item w-full text-left px-4 py-3.5 flex items-center gap-3.5 cursor-pointer transition-all duration-150';
+          item.dataset.index = index;
+          item.dataset.placeId = placeId;
+          item.dataset.mainText = mainText;
+
+          // Pin icon with circular background
+          item.innerHTML = `
+            <div class="ac-pin-icon w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center flex-shrink-0 text-gray-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0 py-0.5">
+              <div class="text-sm font-semibold text-gray-900 truncate leading-snug">${escapeHtml(mainText)}</div>
+              ${secondaryText ? `<div class="text-xs text-gray-400 truncate mt-0.5 leading-snug">${escapeHtml(secondaryText)}</div>` : ''}
+            </div>
+            <svg class="w-4 h-4 text-gray-200 flex-shrink-0 ac-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          `;
+
+          item.addEventListener('click', () => selectAutocompleteSuggestion(item));
+          item.addEventListener('mouseenter', () => highlightAcItem(index));
+
+          acResults.appendChild(item);
         });
+
+        acDropdown.classList.remove('hidden');
+        acEmpty.classList.add('hidden');
+      }
+
+      function showAutocompleteEmpty() {
+        acResults.innerHTML = '';
+        acEmpty.classList.remove('hidden');
+        acDropdown.classList.remove('hidden');
+        acHighlightedIndex = -1;
+      }
+
+      function hideAutocompleteDropdown() {
+        acDropdown.classList.add('hidden');
+        acEmpty.classList.add('hidden');
+        acHighlightedIndex = -1;
+      }
+
+      function highlightAcItem(index) {
+        const items = acResults.querySelectorAll('.ac-item');
+        items.forEach((item, i) => {
+          item.classList.toggle('ac-highlighted', i === index);
+        });
+        acHighlightedIndex = index;
+      }
+
+      function selectAutocompleteSuggestion(item) {
+        const placeId = item.dataset.placeId;
+        const mainText = item.dataset.mainText;
+
+        selectedPlaceId = placeId;
+        selectedPlaceName = mainText;
+        searchInput.value = mainText;
+        autocompletePending = false;
+
+        // Reset session token for future searches
+        acSessionToken = new google.maps.places.AutocompleteSessionToken();
+
+        hideAutocompleteDropdown();
+        showLocationBadge(mainText);
+        clearTimeout(debounceTimer);
+        performSearch(mainText, true);
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
       }
 
       function showLocationBadge(name) {
@@ -448,7 +625,7 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
       // --- Category count fetching (supports both text & location search) ---
 
       async function fetchSearchCategoryCounts(query, placeId, signal) {
-        const baseParams = { booked_in: String(regionId), page_size: '1' };
+        const baseParams = { home_region: String(regionId), page_size: '1' };
         if (placeId) {
           baseParams.location = placeId;
         } else {
@@ -535,7 +712,7 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
 
         showSearchState('loading');
 
-        const params = new URLSearchParams({ booked_in: String(regionId), page_size: '48' });
+        const params = new URLSearchParams({ home_region: String(regionId), page_size: '48' });
 
         if (selectedPlaceId) {
           // Geocoded location search — backend resolves Place ID → Region polygon or geocode point
@@ -605,7 +782,11 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
         showSearchState('idle');
         searchResultsGrid.innerHTML = '';
         hideLocationBadge();
+        hideAutocompleteDropdown();
         resetCategoryCounts();
+
+        // Reset session token for fresh autocomplete
+        if (googleReady) acSessionToken = new google.maps.places.AutocompleteSessionToken();
 
         if (countAbortController) { countAbortController.abort(); countAbortController = null; }
         if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
@@ -621,25 +802,68 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
 
       // --- Event listeners ---
 
-      // Text input: clear location selection, debounce text search
+      // Text input: autocomplete dropdown + debounced text search
       searchInput.addEventListener('input', function() {
-        // If the user types, invalidate any previously selected location
-        // (Autocomplete's place_changed fires after this when they pick a result)
         if (selectedPlaceId) {
           hideLocationBadge();
         }
         autocompletePending = true;
         const val = searchInput.value;
         clearBtn.classList.toggle('hidden', !val);
+
+        // Debounce autocomplete fetch
+        clearTimeout(acDebounceTimer);
+        if (val.trim().length >= 2) {
+          acDebounceTimer = setTimeout(() => {
+            if (val !== acLastQuery) {
+              acLastQuery = val;
+              fetchAutocompleteSuggestions(val);
+            }
+          }, 150);
+        } else {
+          hideAutocompleteDropdown();
+          acLastQuery = '';
+        }
+
+        // Debounce band-name fallback search
         clearTimeout(debounceTimer);
         if (!val.trim()) {
           clearSearch();
           return;
         }
         debounceTimer = setTimeout(() => {
-          // Only fire text search if autocomplete hasn't resolved a place
           if (autocompletePending) performSearch(val, true);
         }, 400);
+      });
+
+      // Keyboard navigation for autocomplete dropdown
+      searchInput.addEventListener('keydown', function(e) {
+        const items = acResults.querySelectorAll('.ac-item');
+        if (!items.length || acDropdown.classList.contains('hidden')) return;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const next = Math.min(acHighlightedIndex + 1, items.length - 1);
+          highlightAcItem(next);
+          items[next].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prev = Math.max(acHighlightedIndex - 1, 0);
+          highlightAcItem(prev);
+          items[prev].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' && acHighlightedIndex >= 0) {
+          e.preventDefault();
+          items[acHighlightedIndex].click();
+        } else if (e.key === 'Escape') {
+          hideAutocompleteDropdown();
+        }
+      });
+
+      // Close dropdown when clicking outside
+      document.addEventListener('mousedown', function(e) {
+        if (!acDropdown.contains(e.target) && e.target !== searchInput) {
+          hideAutocompleteDropdown();
+        }
       });
 
       clearBtn.addEventListener('click', clearSearch);
@@ -655,7 +879,9 @@ const googleApiKey = import.meta.env.PUBLIC_NEXT_PUBLIC_GOOGLE_API_KEY || '';
       document.querySelectorAll('.search-suggestion').forEach(function(btn) {
         btn.addEventListener('click', function() {
           clearTimeout(debounceTimer);
+          clearTimeout(acDebounceTimer);
           autocompletePending = false;
+          hideAutocompleteDropdown();
           const query = btn.dataset.query;
           const placeId = btn.dataset.placeId;
           searchInput.value = query;
