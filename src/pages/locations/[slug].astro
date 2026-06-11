@@ -10,11 +10,16 @@ import remarkParse from 'remark-parse';
 import remarkHtml from 'remark-html';
 
 export async function getStaticPaths() {
-  const locations = await getCollection('locations');
-  return locations.map((location) => ({
-    params: { slug: location.slug },
-    props: { location },
-  }));
+  try {
+    const locations = await getCollection('locations');
+    return locations.map((location) => ({
+      params: { slug: location.slug },
+      props: { location },
+    }));
+  } catch (error) {
+    console.error('Failed to generate static paths for locations:', error);
+    return [];
+  }
 }
 
 const { location } = Astro.props;

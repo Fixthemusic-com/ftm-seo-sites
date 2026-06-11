@@ -6,67 +6,72 @@ import { getBands, getCategories } from '../../lib/api';
 import type { Band, BandCategory, PaginatedResponse } from '../../lib/types';
 
 export async function getStaticPaths() {
-  const PAGE_SIZE = 24;
-  const MAX_API_PAGES = 50; // API enforces a max page limit
-  const [firstPage, categories] = await Promise.all([
-    getBands({ booked_in: siteConfig.regionId, page_size: PAGE_SIZE }),
-    getCategories(),
-  ]);
+  try {
+    const PAGE_SIZE = 24;
+    const MAX_API_PAGES = 50; // API enforces a max page limit
+    const [firstPage, categories] = await Promise.all([
+      getBands({ booked_in: siteConfig.regionId, page_size: PAGE_SIZE }),
+      getCategories(),
+    ]);
 
-  const paths: { params: { path: string | undefined }; props: any }[] = [];
+    const paths: { params: { path: string | undefined }; props: any }[] = [];
 
-  // --- "All" pages (no category filter) ---
-  const allNumPages = Math.min(firstPage.num_pages, MAX_API_PAGES);
-  // Page 1: /browse/ -- pass pre-fetched bands to avoid re-fetching
-  paths.push({
-    params: { path: undefined },
-    props: { page: 1, numPages: allNumPages, totalCount: firstPage.count, category: null, categories, prefetchedBands: firstPage.items },
-  });
-  for (let p = 2; p <= allNumPages; p++) {
+    // --- "All" pages (no category filter) ---
+    const allNumPages = Math.min(firstPage.num_pages, MAX_API_PAGES);
+    // Page 1: /browse/ -- pass pre-fetched bands to avoid re-fetching
     paths.push({
-      params: { path: String(p) },
-      props: { page: p, numPages: allNumPages, totalCount: firstPage.count, category: null, categories, prefetchedBands: null },
+      params: { path: undefined },
+      props: { page: 1, numPages: allNumPages, totalCount: firstPage.count, category: null, categories, prefetchedBands: firstPage.items },
     });
-  }
-
-  // --- Category pages (fetch page 1 of each in parallel) ---
-  const catResults = await Promise.all(
-    categories.map((cat) =>
-      getBands({ booked_in: siteConfig.regionId, category: cat.slug, page_size: PAGE_SIZE })
-        .then((result) => ({ cat, result }))
-    )
-  );
-
-  // Build a map of category slug -> actual count (filtered by booked_in)
-  const categoryCounts: Record<string, number> = {};
-  for (const { cat, result } of catResults) {
-    categoryCounts[cat.slug] = result.count;
-  }
-
-  for (const { cat, result } of catResults) {
-    const catNumPages = Math.min(result.num_pages, MAX_API_PAGES);
-
-    // Page 1: /browse/luxury-showbands/ -- pass pre-fetched bands
-    paths.push({
-      params: { path: cat.slug },
-      props: { page: 1, numPages: catNumPages, totalCount: result.count, category: cat, categories, prefetchedBands: result.items, categoryCounts },
-    });
-    for (let p = 2; p <= catNumPages; p++) {
+    for (let p = 2; p <= allNumPages; p++) {
       paths.push({
-        params: { path: `${cat.slug}/${p}` },
-        props: { page: p, numPages: catNumPages, totalCount: result.count, category: cat, categories, prefetchedBands: null, categoryCounts },
+        params: { path: String(p) },
+        props: { page: p, numPages: allNumPages, totalCount: firstPage.count, category: null, categories, prefetchedBands: null },
       });
     }
-  }
 
-  // Also add categoryCounts to "All" pages
-  paths.forEach((p) => {
-    if (!p.props.categoryCounts) {
-      p.props.categoryCounts = categoryCounts;
+    // --- Category pages (fetch page 1 of each in parallel) ---
+    const catResults = await Promise.all(
+      categories.map((cat) =>
+        getBands({ booked_in: siteConfig.regionId, category: cat.slug, page_size: PAGE_SIZE })
+          .then((result) => ({ cat, result }))
+      )
+    );
+
+    // Build a map of category slug -> actual count (filtered by booked_in)
+    const categoryCounts: Record<string, number> = {};
+    for (const { cat, result } of catResults) {
+      categoryCounts[cat.slug] = result.count;
     }
-  });
 
-  return paths;
+    for (const { cat, result } of catResults) {
+      const catNumPages = Math.min(result.num_pages, MAX_API_PAGES);
+
+      // Page 1: /browse/luxury-showbands/ -- pass pre-fetched bands
+      paths.push({
+        params: { path: cat.slug },
+        props: { page: 1, numPages: catNumPages, totalCount: result.count, category: cat, categories, prefetchedBands: result.items, categoryCounts },
+      });
+      for (let p = 2; p <= catNumPages; p++) {
+        paths.push({
+          params: { path: `${cat.slug}/${p}` },
+          props: { page: p, numPages: catNumPages, totalCount: result.count, category: cat, categories, prefetchedBands: null, categoryCounts },
+        });
+      }
+    }
+
+    // Also add categoryCounts to "All" pages
+    paths.forEach((p) => {
+      if (!p.props.categoryCounts) {
+        p.props.categoryCounts = categoryCounts;
+      }
+    });
+
+    return paths;
+  } catch (error) {
+    console.error('Failed to generate static paths for browse:', error);
+    return [];
+  }
 }
 
 interface Props {

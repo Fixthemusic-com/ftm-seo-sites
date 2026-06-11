@@ -36,9 +36,9 @@ jobs:
       - name: Build site
         env:
           SITE_ID: ${{ matrix.site.id }}
-          FTM_API_BASE: ${{ github.ref == 'refs/heads/main' && 'https://www.fixthemusic.com' || 'https://staging.fixthemusic.com' }}
+          FTM_API_BASE: https://www.fixthemusic.com
           FTM_SITE_TOKEN: ${{ secrets[matrix.site.token_secret] }}
-          PUBLIC_FTM_API_BASE: ${{ github.ref == 'refs/heads/main' && 'https://www.fixthemusic.com' || 'https://staging.fixthemusic.com' }}
+          PUBLIC_FTM_API_BASE: https://www.fixthemusic.com
           PUBLIC_FTM_SITE_TOKEN: ${{ secrets[matrix.site.token_secret] }}
         run: npm run build
 

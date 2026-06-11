@@ -22,26 +22,31 @@ try {
 
 // Generate static paths for all bands in the region at build time
 export async function getStaticPaths() {
-  const allBands = [];
-  let page = 1;
-  let hasMore = true;
+  try {
+    const allBands = [];
+    let page = 1;
+    let hasMore = true;
 
-  while (hasMore) {
-    const result = await getBands({
-      booked_in: siteConfig.regionId,
-      page,
-      page_size: 100,
-    });
-    allBands.push(...result.items);
-    hasMore = page < result.num_pages;
-    page++;
+    while (hasMore) {
+      const result = await getBands({
+        booked_in: siteConfig.regionId,
+        page,
+        page_size: 100,
+      });
+      allBands.push(...result.items);
+      hasMore = page < result.num_pages;
+      page++;
+    }
+
+    const slugSet = new Set(allBands.map((b) => b.slug));
+    return allBands.map((band) => ({
+      params: { slug: band.slug },
+      props: { regionSlugs: [...slugSet] },
+    }));
+  } catch (err) {
+    console.error('Failed to fetch bands for static paths:', err.message);
+    return [];
   }
-
-  const slugSet = new Set(allBands.map((b) => b.slug));
-  return allBands.map((band) => ({
-    params: { slug: band.slug },
-    props: { regionSlugs: [...slugSet] },
-  }));
 }
 
 const { slug } = Astro.params;

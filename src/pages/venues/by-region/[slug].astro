@@ -7,11 +7,16 @@ import type { VenueListItem } from '../../../lib/types';
 import { venueShortName, venueTown, monthName } from '../../../lib/types';
 
 export async function getStaticPaths() {
-  const locations = await getCollection('locations');
-  return locations.map((loc) => ({
-    params: { slug: loc.slug },
-    props: { loc },
-  }));
+  try {
+    const locations = await getCollection('locations');
+    return locations.map((loc) => ({
+      params: { slug: loc.slug },
+      props: { loc },
+    }));
+  } catch (error) {
+    console.error('Failed to generate static paths for venues/by-region:', error);
+    return [];
+  }
 }
 
 const { loc } = Astro.props;
