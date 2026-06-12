@@ -8,7 +8,7 @@ import type { VenueDetail, VenueListItem } from '../../lib/types';
 import { venueShortName, venueTown, monthName } from '../../lib/types';
 
 export async function getStaticPaths() {
-  // Fetch all venues in the region with 1+ bookings
+  // Fetch all venues with 1+ bookings
   let venues: VenueListItem[] = [];
   try {
     venues = await getVenues({ min_bookings: 1, limit: 3000 });
@@ -17,7 +17,13 @@ export async function getStaticPaths() {
     return [];
   }
 
+  // Filter to Italy only (lat/lng bounding box)
+  const isItaly = (v: VenueListItem) =>
+    v.lat != null && v.lng != null &&
+    v.lat >= 35 && v.lat <= 48 && v.lng >= 6 && v.lng <= 19;
+
   return venues
+    .filter(isItaly)
     .filter((venue) => venue.slug && venue.slug.trim() !== '')
     .map((venue) => ({
     params: { slug: venue.slug },

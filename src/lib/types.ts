@@ -162,6 +162,7 @@ export interface VenueListItem {
   price_currency: string;
   extracted_at: string | null;
   needs_review: boolean;
+  region_name: string | null;
 }
 
 export interface VenueDetail extends VenueListItem {
