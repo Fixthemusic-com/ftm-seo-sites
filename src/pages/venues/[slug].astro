@@ -11,7 +11,7 @@ export async function getStaticPaths() {
   // Fetch all venues in the region with 1+ bookings
   let venues: VenueListItem[] = [];
   try {
-    venues = await getVenues({ region_id: siteConfig.regionId, min_bookings: 1, limit: 3000 });
+    venues = await getVenues({ min_bookings: 1, limit: 3000 });
   } catch (err: any) {
     console.warn(`Venues API unavailable (${err?.message || err}), skipping venue pages`);
     return [];
