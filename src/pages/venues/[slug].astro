@@ -17,7 +17,9 @@ export async function getStaticPaths() {
     return [];
   }
 
-  return venues.map((venue) => ({
+  return venues
+    .filter((venue) => venue.slug && venue.slug.trim() !== '')
+    .map((venue) => ({
     params: { slug: venue.slug },
     props: { venue },
   }));
