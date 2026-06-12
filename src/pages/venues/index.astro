@@ -6,10 +6,12 @@ import { venueShortName, venueTown } from '../../lib/types';
 import type { VenueListItem } from '../../lib/types';
 
 let venues: VenueListItem[] = [];
+let venueApiError: string | null = null;
 try {
   venues = await getVenues({ min_bookings: 1, limit: 3000 });
 } catch (err: any) {
-  console.warn(`Venues API unavailable (${err?.message || err}), showing empty venues page`);
+  venueApiError = `${err?.message || err}`;
+  console.warn(`Venues API error: ${venueApiError}`);
 }
 
 // Group by province/admin region
@@ -161,6 +163,21 @@ const schemaOrg = {
       </div>
     </section>
 
+    {/* Debug info */}
+    {venueApiError && (
+      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px;margin-bottom:16px;font-family:monospace;font-size:13px;color:#991b1b;">
+        ⚠️ Venues API error: {venueApiError}<br/>
+        FTM_API_BASE: {import.meta.env.FTM_API_BASE || '(not set)'}<br/>
+        Token: {import.meta.env.FTM_SITE_TOKEN ? 'SET' : 'MISSING'}
+      </div>
+    )}
+    {!venueApiError && venues.length === 0 && (
+      <div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:12px;margin-bottom:16px;font-family:monospace;font-size:13px;color:#1e40af;">
+        API OK but returned 0 venues.<br/>
+        FTM_API_BASE: {import.meta.env.FTM_API_BASE || '(not set)'}<br/>
+        Token: {import.meta.env.FTM_SITE_TOKEN ? 'SET' : 'MISSING'}
+      </div>
+    )}
     {/* Footer CTA */}
     <div class="text-center mt-8">
       <p class="text-gray-500 text-sm mb-4">Data based on real wedding bookings across Italy.</p>
