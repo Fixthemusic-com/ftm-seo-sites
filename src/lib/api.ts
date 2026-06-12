@@ -175,6 +175,7 @@ export async function submitEnquiry(
 export interface GetVenuesParams {
   min_bookings?: number;
   region_id?: number;
+  country?: string;
   limit?: number;
   offset?: number;
 }
@@ -186,6 +187,7 @@ export async function getVenues(params: GetVenuesParams = {}): Promise<VenueList
   const searchParams = new URLSearchParams();
   if (params.min_bookings != null) searchParams.set('min_bookings', String(params.min_bookings));
   if (params.region_id != null) searchParams.set('region_id', String(params.region_id));
+  if (params.country != null) searchParams.set('country', params.country);
   if (params.limit != null) searchParams.set('limit', String(params.limit));
   if (params.offset != null) searchParams.set('offset', String(params.offset));
 

@@ -7,21 +7,14 @@ import type { VenueListItem } from '../../lib/types';
 
 let venues: VenueListItem[] = [];
 try {
-  venues = await getVenues({ min_bookings: 1, limit: 3000 });
+  venues = await getVenues({ country: 'italy', min_bookings: 1, limit: 3000 });
 } catch (err: any) {
   console.warn(`Venues API unavailable (${err?.message || err}), showing empty venues page`);
 }
 
-// Filter to Italy only (lat/lng bounding box: ~35.5–47.2°N, 6.5–18.5°E)
-const isItaly = (v: VenueListItem) =>
-  v.lat != null && v.lng != null &&
-  v.lat >= 35 && v.lat <= 48 && v.lng >= 6 && v.lng <= 19;
-
-const italyVenues = venues.filter(isItaly);
-
-// Group by region_name (from API region assignment), fallback to canonical_name parsing
+// Group by region_name (from API), fallback to canonical_name parsing
 const regionGroups: Record<string, VenueListItem[]> = {};
-for (const v of italyVenues) {
+for (const v of venues) {
   let region = v.region_name || null;
 
   // Fallback: parse region from canonical_name if API didn't provide it
@@ -73,10 +66,10 @@ const locationSlugMap: Record<string, string> = {
 const schemaOrg = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: `Popular Wedding Venues in Italy — ${italyVenues.length} venues with live music data`,
-  description: `Browse ${italyVenues.length} wedding venues across Italy — including typical music budgets, curfew times, guest capacities, and top bands at each venue.`,
+  name: `Popular Wedding Venues in Italy — ${venues.length} venues with live music data`,
+  description: `Browse ${venues.length} wedding venues across Italy — including typical music budgets, curfew times, guest capacities, and top bands at each venue.`,
   url: `https://${siteConfig.domain}/venues/`,
-  numberOfItems: italyVenues.length,
+  numberOfItems: venues.length,
   isPartOf: {
     '@type': 'WebSite',
     name: siteConfig.name,
@@ -86,8 +79,8 @@ const schemaOrg = {
 ---
 
 <BaseLayout
-  title={`Popular Wedding Venues in Italy — ${italyVenues.length} Venues with Live Music Data`}
-  description={`Browse ${italyVenues.length} Italian wedding venues with real data: typical music budgets, curfew times, guest capacities, and top bands at each venue.`}
+  title={`Popular Wedding Venues in Italy — ${venues.length} Venues with Live Music Data`}
+  description={`Browse ${venues.length} Italian wedding venues with real data: typical music budgets, curfew times, guest capacities, and top bands at each venue.`}
 >
   <script type="application/ld+json" set:html={JSON.stringify(schemaOrg)} />
   <script type="application/ld+json" set:html={JSON.stringify({
@@ -104,7 +97,7 @@ const schemaOrg = {
     <header class="mb-10 text-center">
       <h1 class="font-heading text-3xl md:text-4xl font-bold mb-3">Popular Wedding Venues in Italy</h1>
       <p class="text-lg text-gray-600 max-w-3xl mx-auto">
-        Real data from actual wedding bookings across <strong>{italyVenues.length}</strong> venues —
+        Real data from actual wedding bookings across <strong>{venues.length}</strong> venues —
         including typical music budgets, curfew times, and guest capacities.
       </p>
     </header>
@@ -112,7 +105,7 @@ const schemaOrg = {
     <!-- Quick stats -->
     <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-12">
       <div class="bg-gray-50 rounded-lg p-4 text-center">
-        <div class="text-2xl font-bold text-primary">{italyVenues.length}</div>
+        <div class="text-2xl font-bold text-primary">{venues.length}</div>
         <div class="text-sm text-gray-500">Venues</div>
       </div>
       <div class="bg-gray-50 rounded-lg p-4 text-center">
