@@ -167,15 +167,15 @@ const schemaOrg = {
     {venueApiError && (
       <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px;margin-bottom:16px;font-family:monospace;font-size:13px;color:#991b1b;">
         ⚠️ Venues API error: {venueApiError}<br/>
-        FTM_API_BASE: {import.meta.env.FTM_API_BASE || '(not set)'}<br/>
-        Token: {import.meta.env.FTM_SITE_TOKEN ? 'SET' : 'MISSING'}
+        FTM_API_BASE: {import.meta.env.PUBLIC_FTM_API_BASE || '(not set)'}<br/>
+        PUBLIC_FTM_SITE_TOKEN: {import.meta.env.PUBLIC_FTM_SITE_TOKEN ? `SET (${import.meta.env.PUBLIC_FTM_SITE_TOKEN.slice(0,8)}...)` : 'MISSING'}
       </div>
     )}
     {!venueApiError && venues.length === 0 && (
       <div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:12px;margin-bottom:16px;font-family:monospace;font-size:13px;color:#1e40af;">
         API OK but returned 0 venues.<br/>
-        FTM_API_BASE: {import.meta.env.FTM_API_BASE || '(not set)'}<br/>
-        Token: {import.meta.env.FTM_SITE_TOKEN ? 'SET' : 'MISSING'}
+        FTM_API_BASE: {import.meta.env.PUBLIC_FTM_API_BASE || '(not set)'}<br/>
+        PUBLIC_FTM_SITE_TOKEN: {import.meta.env.PUBLIC_FTM_SITE_TOKEN ? `SET (${import.meta.env.PUBLIC_FTM_SITE_TOKEN.slice(0,8)}...)` : 'MISSING'}
       </div>
     )}
     {/* Footer CTA */}

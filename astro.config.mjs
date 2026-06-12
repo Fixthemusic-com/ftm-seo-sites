@@ -57,6 +57,8 @@ export default defineConfig({
   vite: {
     define: {
       'import.meta.env.SITE_ID': JSON.stringify(siteId),
+      'import.meta.env.PUBLIC_FTM_SITE_TOKEN': JSON.stringify(process.env.PUBLIC_FTM_SITE_TOKEN || process.env.FTM_SITE_TOKEN || ''),
+      'import.meta.env.PUBLIC_FTM_API_BASE': JSON.stringify(process.env.PUBLIC_FTM_API_BASE || process.env.FTM_API_BASE || 'https://www.fixthemusic.com'),
     },
   },
 });
