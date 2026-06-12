@@ -17,7 +17,7 @@ import type {
 } from './types';
 
 const API_BASE = import.meta.env.FTM_API_BASE || 'https://www.fixthemusic.com';
-const SITE_TOKEN = import.meta.env.FTM_SITE_TOKEN || '';
+const SITE_TOKEN = import.meta.env.PUBLIC_FTM_SITE_TOKEN || import.meta.env.FTM_SITE_TOKEN || '';
 
 /**
  * Generic fetch wrapper with error handling
